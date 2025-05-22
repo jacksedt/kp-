@@ -190,7 +190,7 @@
         const dataset = [
             //love
             { 
-                title: "62731和陳婷昕的關係",
+                title: "62731和62720的關係",
                 summary: "可能有雙向關係(90%)(證據確鑿)(原因：4月24日他們兩個被老師駡+張家綺的八卦+頭像相似)",
                 details: "詳細資訊：\n\n詳情原因：(1)\n時間背景：\n-4月24日中午放學\n地點：\n-初二G課室外\n事件：\n-他們兩個被潘sir駡\n被駡的內容:\n-你們两個還小，不能這樣\n-如果你們两個還有進一步的行為，就和你們两個的家長說\n\n(2)\n時間背景：\n-4月25日\n地點：\n-初二G課室后門\n事件：\n-62731在折花，62713問歐陽毅康是不是要送給陳婷昕。\n\n(3)\n時間背景：\n-5月1日上午\n地點：\n-澳門\n事件：\n-62728和我說62731和陳婷昕的頭像是情頭，一個貓上面有香蕉。"
             },
@@ -210,7 +210,7 @@
                 details: "詳細資訊：\n\n詳情原因：(1)\n時間：\n-2023年9月\n事件：\n-曾浩柏在我們班學生自建的學生群發了表情包和一些文字(表情包里有一個鏡平學生在坐車，表情包的文字有陳一心你可以可以做我的女朋友)(更具體的資料因年代久遠以銷毀)\n\n詳情原因：(2)\n時間：\n-2024年至現在\n事件：在我放學離開學校等紅燈時看到他們两個站在一起且在聊天，到馬路對他們也一起走(已經目睹多次)"
             },
             { 
-                title: "62707和62708以前的關係",
+                title: "62707和62608以前的關係",
                 summary: "可能有雙向關係(原因：某人的八卦)(2021年至2023年)",
                 details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-晚上11点\n地點：\n-微信\n事件：\n-某人(不公開)說62707和62708小學五至六年級時有關係\n\n推理原因：(1)\n-6277和林芊葵小學五至六年級時在同一班，都是P5B和P6B，有助關係的出現和加強\n\n(2)\n-6277一名體育生，而女生大部分都喜歡體育生，因此他們的關係存在機會更大"
             },
@@ -2645,6 +2645,28 @@
             }
         ];
 
+        // 同义词库
+        const synonyms = {
+            "62707": ["林煒軒"],
+            "林煒軒": ["62707"],
+            "62608": ["林芊葵"],
+            "林芊葵": ["62608"],
+            "62731": ["歐陽毅康"],
+            "歐陽毅康": ["62731"],
+            "62720": ["陳婷昕"],
+            "陳婷昕": ["62720"],
+            "62726": ["蔣汝晴"],
+            "蔣汝晴": ["62726"],
+            "62709": ["施嘉琪"],
+            "施嘉琪": ["62709"],
+            "62728": ["黎璟臻"],
+            "黎璟臻": ["62728"],
+            "62717": ["郭泳妍"],
+            "郭泳妍": ["62717"],
+            "62721": ["陳灝熙"],
+            "陳灝熙": ["62721"],
+        };
+
         // 確保DOM加載完成
         document.addEventListener('DOMContentLoaded', function() {
             // 綁定搜索按鈕點擊事件
@@ -2680,15 +2702,40 @@
             return text.replace(regex, '<span class="highlight">$1</span>');
         }
 
-        // 處理關鍵詞
+        // 处理关键词（包含同义词扩展）
         let lastSearchKeywords = [];
         function processKeywords(keyword) {
-            const chineseWords = keyword.match(/[\u4e00-\u9fa5]+/g) || [];
-            const pinyinWords = keyword.toLowerCase()
+            // 提取原始中文词
+            const originalChinese = keyword.match(/[\u4e00-\u9fa5]+/g) || [];
+            
+            // 扩展同义词
+            let expandedChinese = [...originalChinese];
+            originalChinese.forEach(word => {
+                if (synonyms[word]) {
+                    expandedChinese.push(...synonyms[word]);
+                }
+            });
+            expandedChinese = [...new Set(expandedChinese)];
+
+            // 处理扩展后的中文词拼音
+            const pinyinFromChinese = expandedChinese
+                .map(word => toPinyin(word))
+                .filter(py => py.length > 0);
+
+            // 处理原始输入的非中文部分
+            const nonChineseParts = keyword.toLowerCase()
                 .replace(/[\u4e00-\u9fa5]/g, '')
                 .split(/[\s\+]+/)
                 .filter(k => k.length > 1);
-            return [...new Set([...chineseWords, ...pinyinWords])];
+
+            // 合并所有关键词并统一小写
+            const allKeywords = [
+                ...expandedChinese,
+                ...pinyinFromChinese,
+                ...nonChineseParts
+            ].map(k => k.toLowerCase());
+
+            return [...new Set(allKeywords)];
         }
 
         // 執行搜索
