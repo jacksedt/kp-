@@ -236,6 +236,11 @@
                 summary: "可能有雙向關係 (也可能是單純的遊戲搭子)(原因：62731的八卦)",
                 details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-4月24日\n地點：\n-初二G課室\n事件：\n-上中文課時62731和我說62717和62728經常一起玩王者榮耀"
             },
+            { 
+                title: "61629和61713可能是什么關係",
+                summary: "可能有雙向關係(原因：IG的#kp22234)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-6月1日\n地點：\n-IG\n事件：\n-IG上有人問61629和61713是什么關係，詳情看IG的kp_secret4.1的#kp22234"
+            },
 
             //誰喜歡誰
             { 
@@ -288,7 +293,7 @@
             { 
                 title: "林浩仁和徐肇澤",
                 summary: " 超好的朋友(原因：初一是一班的+經常一起組隊)",
-                details: "詳細資訊：\n\n詳細原因：(1)\n-他們初一都是初一D的\n\n(2)\n-很多的組隊都是一起的，如體育和公民\n\n(3)\n-興趣愛好接近"
+                details: "詳細資訊：\n\n詳細原因：(1)\n-他們初一都是初一D的\n\n(2)\n-很多的組隊都是一起的，如體育和公民\n\n(3)\n-興趣愛好接近，如將軍和歷史"
             },
             { 
                 title: "林嘉瑤和許婉淇",
@@ -2837,7 +2842,7 @@
                     resultsContainer.appendChild(resultElement);
                 });
             } else {
-                resultsContainer.innerHTML = '<p>未找到相關結果，尝试使用其他关键词或拼音搜索</p>';
+                resultsContainer.innerHTML = '<p>未找到相關結果，嘗試使用其他關鍵詞或拼音搜索</p>';
             }
         }
 
@@ -2900,7 +2905,7 @@
                         const externalData = JSON.parse(e.target.result);
                         
                         if (!Array.isArray(externalData)) {
-                            throw new Error('文件必须包含JSON数组');
+                            throw new Error('文件必須包含JSON數組');
                         }
                         
                         const isValid = externalData.every(item => 
@@ -2910,7 +2915,7 @@
                         );
                         
                         if (!isValid) {
-                            throw new Error('数据缺少必要字段：title/summary/details');
+                            throw new Error('數據缺少必要字段：title/summary/details');
                         }
 
                         dataset.push(...externalData);
@@ -2921,7 +2926,7 @@
                     }
 
                     if (totalSuccess + totalFailed === files.length) {
-                        const successMsg = `成功加载 ${totalSuccess} 个文件，失败 ${totalFailed} 个`;
+                        const successMsg = `成功加載 ${totalSuccess} 個文件，失敗 ${totalFailed} 个`;
                         const finalMsg = [successMsg, ...errorMessages].join('\n');
                         showMessage(finalMsg, totalFailed > 0);
                     }
