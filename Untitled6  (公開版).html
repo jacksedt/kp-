@@ -216,7 +216,7 @@
 </head>
 <body>
     <div class="header">
-        <img class="logo" src="D:\桌面\新增資料夾\sedt的logo.png" alt="SEDT Logo">
+        <img class="logo" src="../圖片/sedt的logo.png" alt="SEDT Logo">
         <h1>知識庫搜索</h1>
     </div>
 
@@ -2796,21 +2796,21 @@
             "朋友": ["死黨"],
             "8964": ["天安門事件"],
         };
-        let lastSearchKeywords = [];
+    let lastSearchKeywords = [];
 
-        // 确保DOM加载完成
+        // 確保DOM加載完成
         document.addEventListener('DOMContentLoaded', function() {
-            // 绑定搜索按钮点击事件
+            // 綁定搜索按鈕點擊事件
             document.getElementById('searchButton').addEventListener('click', performSearch);
             
-            // 绑定回车键事件
+            // 綁定回車鍵事件
             document.getElementById('searchInput').addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     performSearch();
                 }
             });
 
-            // 输入框聚焦/失焦事件
+            // 輸入框聚焦/失焦事件
             document.getElementById('searchInput').addEventListener('focus', function() {
                 document.getElementById('searchTips').style.display = 'block';
             });
@@ -2821,7 +2821,7 @@
                 }, 200);
             });
 
-            // 文件加载处理
+            // 文件加載處理
             document.getElementById('fileInput').addEventListener('change', function(e) {
                 const files = Array.from(e.target.files);
                 if (files.length === 0) return;
@@ -2857,7 +2857,7 @@
                         }
 
                         if (totalSuccess + totalFailed === files.length) {
-                            const successMsg = `成功加載 ${totalSuccess} 个文件，失敗 ${totalFailed} 个`;
+                            const successMsg = `成功加載 ${totalSuccess} 個文件，失敗 ${totalFailed} 個`;
                             const finalMsg = [successMsg, ...errorMessages].join('\n');
                             showMessage(finalMsg, totalFailed > 0);
                         }
@@ -2866,7 +2866,7 @@
                         totalFailed++;
                         errorMessages.push(`【${file.name}】文件讀取失敗`);
                         if (totalSuccess + totalFailed === files.length) {
-                            const successMsg = `成功加載 ${totalSuccess} 个文件，失敗 ${totalFailed} 个`;
+                            const successMsg = `成功加載 ${totalSuccess} 個文件，失敗 ${totalFailed} 個`;
                             const finalMsg = [successMsg, ...errorMessages].join('\n');
                             showMessage(finalMsg, true);
                         }
@@ -2876,7 +2876,7 @@
             });
         });
 
-        // 增强版拼音转换（保留数字）
+        // 增強版拼音轉換（保留數字）
         function toPinyin(str) {
             try {
                 return window.pinyin(str, { 
@@ -2885,7 +2885,7 @@
                     nonZh: 'consecuted' // 保留非中文字符
                 }).replace(/\s+/g, '').toLowerCase();
             } catch (e) {
-                console.error("拼音轉换失敗:", e);
+                console.error("拼音轉換失敗:", e);
                 return str.toLowerCase();
             }
         }
@@ -2898,20 +2898,20 @@
             return text.replace(regex, '<span class="highlight">$1</span>');
         }
 
-        // 处理关键词（包括同义词扩展）
+        // 處理關鍵詞（包括同義詞擴展）
         function processKeywords(keyword) {
             try {
-                // 分词处理
+                // 分詞處理
                 const words = keyword.match(/[\u4e00-\u9fa5]+|\d+[a-zA-Z]*|[a-zA-Z]+\d*|\d+/g) || [];
                 
-                // 同义词扩展
+                // 同義詞擴展
                 const expandedWords = words.flatMap(word => {
                     const lowerWord = word.toLowerCase();
                     const synonymList = synonymLib[lowerWord] || [];
                     return [word, ...synonymList];
                 });
                 
-                // 生成拼音变体
+                // 生成拼音變體
                 const pinyinVariants = expandedWords.flatMap(word => {
                     const py = toPinyin(word);
                     return py !== word.toLowerCase() ? [py] : [];
@@ -2927,7 +2927,7 @@
             }
         }
 
-        // 执行搜索
+        // 執行搜索
         function performSearch() {
             const input = document.getElementById('searchInput');
             const keyword = input.value.trim();
@@ -3006,30 +3006,30 @@
             }
         }
 
-        // 在details中检测并高亮链接
+        // 在details中檢測並高亮鏈接
         function detectAndHighlightLinks(text) {
-            // 检测普通URL
+            // 檢測普通URL
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             let processedText = text.replace(urlRegex, '<span class="external-link" data-url="$1">$1</span>');
             
-            // 检测无协议的URL
+            // 檢測無協議的URL
             const noProtocolRegex = /(?:^|\s)(www\.[^\s]+)/g;
             processedText = processedText.replace(noProtocolRegex, ' <span class="external-link" data-url="http://$1">$1</span>');
             
             return processedText;
         }
 
-        // 显示详情弹窗
+        // 顯示詳情彈窗
         function showDetail(item) {
             const modal = document.getElementById('detailModal');
             document.getElementById('modalTitle').innerHTML = highlightText(item.title, lastSearchKeywords);
             
-            // 处理details中的链接
+            // 處理details中的鏈接
             let detailsContent = highlightText(item.details, lastSearchKeywords)
                 .replace(/\n/g, '<br>');
             detailsContent = detectAndHighlightLinks(detailsContent);
             
-            // 添加额外的链接
+            // 添加額外的鏈接
             if (item.links && item.links.length > 0) {
                 detailsContent += '<div class="related-links">';
                 detailsContent += '<div class="related-links-title">相關鏈接：</div>';
@@ -3043,7 +3043,7 @@
             document.getElementById('modalContent').innerHTML = detailsContent;
             modal.style.display = 'flex';
             
-            // 添加链接点击事件
+            // 添加鏈接點擊事件
             setTimeout(() => {
                 document.querySelectorAll('#modalContent .external-link').forEach(link => {
                     link.addEventListener('click', function(e) {
@@ -3055,16 +3055,16 @@
             }, 100);
         }
 
-        // 显示链接确认对话框
+        // 顯示鏈接確認對話框
         function showLinkConfirmation(url) {
             const modalContent = document.getElementById('modalContent');
             const confirmHTML = `
                 <div class="link-confirm">
                     <p>即將離開SEDT前往外部網站：</p>
                     <p><strong>${url}</strong></p>
-                    <p>请注意：外部網站的内容不在SEDT控制范圍内</p>
+                    <p>請注意：外部網站的內容不在SEDT控制範圍內</p>
                     <div class="link-confirm-buttons">
-                        <button class="confirm-btn confirm-yes" onclick="navigateToUrl('${url}')">同意訪問</button>
+                        <button class="confirm-btn confirm-yes" onclick="navigateToUrl('${url}')">繼續訪問</button>
                         <button class="confirm-btn confirm-no" onclick="closeConfirm()">取消</button>
                     </div>
                 </div>
@@ -3072,7 +3072,7 @@
             modalContent.insertAdjacentHTML('afterbegin', confirmHTML);
         }
 
-        // 关闭确认对话框
+        // 關閉確認對話框
         function closeConfirm() {
             const confirmDiv = document.querySelector('.link-confirm');
             if (confirmDiv) {
@@ -3080,13 +3080,13 @@
             }
         }
 
-        // 导航到外部链接
+        // 導航到外部鏈接
         function navigateToUrl(url) {
             closeConfirm();
             window.open(url, '_blank');
         }
 
-        // 关闭弹窗
+        // 關閉彈窗
         function closeModal() {
             document.getElementById('detailModal').style.display = 'none';
         }
@@ -3100,7 +3100,7 @@
             document.getElementById('submitModal').style.display = 'none';
         }
 
-        // 点击背景关闭弹窗
+        // 點擊背景關閉彈窗
         window.addEventListener('click', function(event) {
             if (event.target === document.getElementById('detailModal')) {
                 closeModal();
@@ -3110,7 +3110,7 @@
             }
         });
 
-        // 显示消息
+        // 顯示消息
         function showMessage(text, isError) {
             const msg = document.createElement('div');
             msg.className = `message${isError ? ' error' : ''}`;
