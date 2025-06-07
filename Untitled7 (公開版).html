@@ -1,0 +1,2988 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEDT 搜索</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1a73e8',
+                        secondary: '#f8f9fa',
+                        accent: '#e3f2fd',
+                        success: '#28a745',
+                        danger: '#dc3545',
+                        neutral: '#666666',
+                        light: '#f8f9fa',
+                        dark: '#333333',
+                    },
+                    fontFamily: {
+                        sans: ['Arial', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+            }
+            .btn-primary {
+                @apply bg-primary text-white px-6 py-3 rounded-full hover:bg-primary/90 transition-all duration-300 shadow-md hover:shadow-lg;
+            }
+            .btn-floating {
+                @apply fixed bottom-8 right-8 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300;
+            }
+            .modal-appear {
+                animation: fadeIn 0.3s forwards;
+            }
+            .content-appear {
+                animation: slideIn 0.3s forwards;
+            }
+            .message-appear {
+                animation: messageSlide 0.3s forwards;
+            }
+            .message-fade {
+                animation: messageFade 0.3s forwards;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes messageSlide {
+                from { top: -50px; opacity: 0; }
+                to { top: 40px; opacity: 1; }
+            }
+            @keyframes messageFade {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+        }
+    </style>
+</head>
+<body class="max-w-4xl mx-auto px-4 py-8 font-sans">
+    <!-- 页面顶部 -->
+    <header class="flex items-center justify-between mb-8">
+        <div class="flex items-center">
+            <div class="w-16 h-16 bg-primary rounded-lg flex items-center justify-center text-white text-2xl font-bold">
+                SEDT
+            </div>
+            <h1 class="ml-4 text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-dark">知識庫搜索</h1>
+        </div>
+        <button id="submitBtn" class="hidden md:flex items-center px-4 py-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-all">
+            <i class="fa fa-paper-plane mr-2"></i> 投稿
+        </button>
+    </header>
+
+    <!-- 搜索区域 -->
+    <div class="mb-8">
+        <div class="relative">
+            <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="輸入搜索關鍵詞..." 
+                class="w-full px-6 py-4 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-lg"
+                autocomplete="off"
+            >
+            <button 
+                id="searchButton" 
+                class="absolute right-2 top-1/2 transform -translate-y-1/2 btn-primary"
+                onclick="performSearch()"
+            >
+                <i class="fa fa-search mr-2"></i>搜索
+            </button>
+        </div>
+        <div id="searchTips" class="mt-3 text-neutral text-sm">
+            <i class="fa fa-lightbulb-o mr-1"></i> 提示：使用空格分隔多個關鍵詞，或輸入拼音搜索
+        </div>
+    </div>
+
+    <!-- 搜索结果区域 -->
+    <div class="mb-8">
+        <div id="resultStats" class="text-neutral text-sm mb-4"></div>
+        <div id="synonymInfo" class="text-primary text-sm mb-4"></div>
+        <div id="searchResults" class="space-y-4"></div>
+    </div>
+
+    <!-- 移动端投稿按钮 -->
+    <button id="mobileSubmitBtn" class="btn-floating md:hidden" onclick="showSubmitModal()">
+        <i class="fa fa-paper-plane"></i>
+    </button>
+
+    <!-- 详情模态框 -->
+    <div id="detailModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden modal-appear">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto m-4 content-appear">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 id="modalTitle" class="text-xl font-bold text-dark"></h2>
+                    <button onclick="closeModal()" class="text-neutral hover:text-dark transition-colors">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div id="modalContent" class="text-dark leading-relaxed"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 投稿模态框 -->
+    <div id="submitModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden modal-appear">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full m-4 content-appear">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-xl font-bold text-dark">投稿資料</h2>
+                    <button onclick="closeSubmitModal()" class="text-neutral hover:text-dark transition-colors">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+                <p class="mb-4 text-dark">請通過以下按鈕提交：</p>
+                <a 
+                    href="https://docs.google.com/forms/d/e/1FAIpQLSeRHZ6YTms4cBd7KeCaaD79mzCa5zj2-JJMmX8xC7GuIm6qqQ/viewform?usp=dialog" 
+                    target="_blank" 
+                    class="block w-full py-3 px-4 bg-primary text-white rounded-lg text-center hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
+                >
+                    <i class="fa fa-upload mr-2"></i> 前往投稿表單
+                </a>
+                <p class="mt-3 text-neutral text-sm">* 提交後需經管理員審核</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息提示 -->
+    <div id="message" class="fixed top-10 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-lg z-50 hidden"></div>
+    
+    <!-- 文件输入元素 -->
+    <input type="file" id="fileInput" accept=".json" hidden multiple>
+
+    <script>
+        // 數據集
+        const dataset = [
+            //班級簡介
+            { 
+                title: "F2G",
+                summary: "F2G，初二G",
+                details: "詳細資訊：基本\n人數：31人\n班主任：潘國源\n代表人物：李佩凝、蔡寶瑩"
+            },
+            //love
+            { 
+                title: "62731和62720的關係",
+                summary: "可能有雙向關係(90%)(證據確鑿)(原因：4月24日他們兩個被老師駡+62713的八卦+頭像相似)",
+                details: "詳細資訊：\n\n詳情原因：(1)\n時間背景：\n-4月24日中午放學\n地點：\n-初二G課室外\n事件：\n-他們兩個被潘sir駡\n被駡的內容:\n-你們两個還小，不能這樣\n-如果你們两個還有進一步的行為，就和你們两個的家長說\n\n(2)\n時間背景：\n-4月25日\n地點：\n-初二G課室后門\n事件：\n-62731在折花，62713問歐陽毅康是不是要送給陳婷昕。\n\n(3)\n時間背景：\n-5月1日上午\n地點：\n-澳門\n事件：\n-62728和我說62731和62720的頭像是情頭，一個貓上面有香蕉。"
+            },
+            { 
+                title: "62726和62121以前的關係",
+                summary: "可能有雙向關係(原因：6272八卦)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-晚上11点\n地點：\n-微信\n事件：\n-62702說62726和62121以前有關係(因為後面的诶推理可得他們分了)\n\n推理原因：(1)\n-62726和62121的身高都很高，可推理體育都不錯，興趣差不多有助出現關係"
+            },
+            { 
+                title: "62731和62709以前的關係",
+                summary: "可能有單向關係 (原因：62724的八卦)(時間：2024年12月至2025年2月)",
+                details: "詳細資訊：\n\n詳情原因：(1)\n時間背景：\n-1月至2月\n地點：\n-初二G課室\n事件：\n-62724上課時去台上拿東西，下來時說上面可以看見62731和62709搞東西"
+            },
+            { 
+                title: "曾浩柏和陳一心的關係",
+                summary: "可能有雙向關係(70%)(證據偏多)(原因：初一開學風波+放學一起走)",
+                details: "詳細資訊：\n\n詳情原因：(1)\n時間：\n-2023年9月\n事件：\n-曾浩柏在我們班學生自建的學生群發了表情包和一些文字(表情包里有一個鏡平學生在坐車，表情包的文字有陳一心你可以不可以做我的女朋友)(更具體的資料因年代久遠以銷毀)\n\n詳情原因：(2)\n時間：\n-2024年至現在\n事件：在我放學離開學校等紅燈時看到他們两個站在一起且在聊天，到馬路對他們也一起走(已經目睹多次)"
+            },
+            { 
+                title: "62707和62608以前的關係",
+                summary: "可能有雙向關係(原因：某人的八卦)(2021年至2023年)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-晚上11点\n地點：\n-微信\n事件：\n-某人(不公開)說62707和62708小學五至六年級時有關係\n\n推理原因：(1)\n-6277和林芊葵小學五至六年級時在同一班，都是P5B和P6B，有助關係的出現和加強\n\n(2)\n-6277一名體育生，而女生大部分都喜歡體育生，因此他們的關係存在機會更大"
+            },
+            { 
+                title: "62201和62627以前的關係",
+                summary: "可能有雙向關係(原因：某人的八卦)(幼稚園至小學一至二年級)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-5月20日晚上8点\n地點：\n-微信\n事件：\n-某人(不公開)說62201和62627在小學或是幼稚園有過關係"
+            },
+            //誰和誰可能是什么關係
+            { 
+                title: "62721和62320可能是什么關係",
+                summary: "可能有單向關係 (原因：美術堂62718的八卦)",
+                details: "詳細資訊：\n\n詳情原因：(1)\n時間背景：\n-3月至4月的一節美術課\n地點：\n-美術室\n事件：\n-62718說以前初一傳62721和62320在一起"
+            },
+            { 
+                title: "62717和62728可能是什么關係",
+                summary: "可能有雙向關係 (也可能是單純的遊戲搭子)(原因：62731的八卦)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-4月24日\n地點：\n-初二G課室\n事件：\n-上中文課時62731和我說62717和62728經常一起玩王者榮耀"
+            },
+            { 
+                title: "61629和61713可能是什么關係",
+                summary: "可能有雙向關係(原因：IG的#kp22234)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-6月1日\n地點：\n-IG\n事件：\n-IG上有人問61629和61713是什么關係，詳情看IG的kp_secret4.1的#kp22234"
+            },
+
+            //誰喜歡誰
+            { 
+                title: "62727會喜歡誰？",
+                summary: "可能是62702(原因：美術堂62704的八卦)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間背景：\n-4月的一節美術室\n地點：\n-美術室\n事件：\n-62704她和62727是三角恋，62704說她們都喜歡62702"
+            },
+            { 
+                title: "62704會喜歡誰？",
+                summary: "可能是62702(原因：美術堂62704的八卦)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間背景：\n-4月的一節美術室\n地點：\n-美術室\n事件：\n-62704她和62727是三角恋，62704說她們都喜歡62702"
+            },
+            { 
+                title: "62621會喜歡誰？",
+                summary: "可能是62603(原因：5月14日中午F2F同學的八卦)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-5月14日中午\n地點：\n-珠海國防訓練中心的餐廳\n事件：\n-一個F2F的人說有人喜歡62603，經過追問，他說了x某某喜歡62603(經推理可得x某某是62621(因為F2F只一個男生姓x))"
+            },
+            { 
+                title: "62723會喜歡誰？",
+                summary: "可能是62428(原因：5月16日下午62724的八卦+推理)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-5月16日中午從港珠澳口岸回學校的巴士上下車時約3:55\n地點：\n-從港珠澳口岸回學校的巴士上\n事件：\n-劉婧妍說讓黃琇雯去找鄭誠\n\n推理原因：(1)\n-62428是一名體育生，而很多女生都喜歡體育生，所以他們存在關係的機會更大"
+            },
+            { 
+                title: "62602會喜歡誰？",
+                summary: "可能是62612(原因：初一10月至12月風波+推理)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-2023年10-12月\n地點：\n-初一B課室\n事件：\n-62602在中午買了東西，然后方柏喬的位置在62612的后面，有人問62602這些東西是不是送給62612\n\n詳情原因：(2)\n初一時公認\n\n推理原因：(1)\n-62602和62612初二和初一是同班(初一B和初二F)，有助發展關係"
+            },
+            { 
+                title: "62512會喜歡誰？",
+                summary: "可能是62628(同性恋)(原因：某人的八卦)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間：\n-5月18日中午1點\n地點：\n-微信\n事件：\n-某人和我說在軍訓的一次午餐，有人說一個姓x的人得知62512喜歡他後(經推理可得姓謝的是62628，因為他是初二唯一姓x的人)，回去馬上和招易廷絕交"
+            },
+            { 
+                title: "62503會喜歡誰？",
+                summary: "可能是62727(原因：小六表白事件)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間背景：\n-2023年小學六年級\n地點：\n-學校\n事件：\n-62503寫了一份情書給62727\n推理原因：\n(1)\n-62503和62727在小學五至六年級是同班，加上62727人很好，因此62503喜歡62727的機會會更大"
+            },
+            { 
+                title: "62716會喜歡誰？",
+                summary: "可能是62727(原因：62724八卦+推理)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間背景：\n-5月26日2點約40分物理課\n地點：\n-物理實驗室\n事件：\n-62724說62716喜歡62727\n推理原因：\n(1)\n時間：\n-在4-5月的一堂地理課\n地點：\n-課室\n事件：\n-一次礦工搶答時，62716沒有搶過62727，62718說：「62716啊，小學五年級時都搶不過62727，現在還搶不過62727」\n從事件可推理得：\n62716在小學五年級時和62727是同一班。而627247人很好，讓62716喜歡62727的機會更大"
+            },
+            { 
+                title: "會喜歡誰？",
+                summary: "可能是(原因：)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n時間背景：\n-\n地點：\n-\n事件：\n-"
+            },
+            
+            //朋友
+            { 
+                title: "林浩仁和徐肇澤",
+                summary: " 超好的朋友(原因：初一是一班的+經常一起組隊)",
+                details: "詳細資訊：\n\n詳細原因：(1)\n-他們初一都是初一D的\n\n(2)\n-很多的組隊都是一起的，如體育和公民\n\n(3)\n-興趣愛好接近，如將軍和歷史"
+            },
+            { 
+                title: "林嘉瑤和許婉淇",
+                summary: "好朋友 (原因：經常一起玩)",
+                details: "詳細資訊：\n\n"
+            },
+            { 
+                title: "許樂山和黃昱衡",
+                summary: "好朋友、gay (原因：)",
+                details: "詳細資訊：\n\n"
+            },
+            { 
+                title: "鄧伊楠和郭芷瑜",
+                summary: " 超好的朋友(原因：同班四年+組隊一起+無話不聊)",
+                details: "詳細資訊：\n\n"
+            },
+            { 
+                title: "鄧伊楠和鄧子昊",
+                summary: " 好朋友(按他們的說法是青梅竹馬)(原因：無法解釋的原因+圖片)",
+                details: "詳細資訊：\n\n",
+                links: [
+                    { text: "圖片", url: "https://ibb.co/BKs45pr1" },
+                ]
+            },
+            { 
+                title: "",
+                summary: " (原因：)",
+                details: "詳細資訊：\n\n"
+            },
+            { 
+                title: "",
+                summary: " (原因：)",
+                details: "詳細資訊：\n\n"
+            },
+            { 
+                title: "",
+                summary: " (原因：)",
+                details: "詳細資訊：\n\n"
+            },
+            { 
+                title: "",
+                summary: " (原因：)",
+                details: "詳細資訊：\n\n"
+            },
+
+            //簡介 F2G
+
+            {
+                "title": "古嘉煒",
+                "summary": "班級：F2G | 學號：1號 | Class賬號：s20230029",
+                "details": "詳細資訊：基本\n姓名：古嘉煒\n英文姓名：Wesley\n外號：古雞煒\n班級：F2G\n學號：1號\nclass賬號：s20230029\n職務：英文、音樂科代\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "李文皓",
+                "summary": "班級：F2G | 學號：2號 | Class賬號：s20230073",
+                "details": "詳細資訊：基本\n姓名：李文皓\n英文姓名：Haowin\n班級：F2G\n學號：2號\nclass賬號：s20230073\n職務：班長\n友情\n死黨：未知\n愛情\n追求者：fbgod、fbgbg\n喜歡的人：未知"
+            },
+            {
+                "title": "李佩凝",
+                "summary": "班級：F2G | 學號：3號 | Class賬號：未知",
+                "details": "詳細資訊：基本\n姓名：李佩凝\n英文姓名：Claire\n班級：F2G\n學號：3號\nclass賬號：未知\n職務：中文科代\n友情\n死黨：過多，難確定\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "李菀晴",
+                "summary": "班級：F2G | 學號：4號 | Class賬號：s20231027",
+                "details": "詳細資訊：基本\n姓名：李菀睛\n英文姓名：Zelda\n外號：李菀清\n班級：F2G\n學號：4號\nclass賬號：s20231027\n職務：數二科代\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：fbgob"
+            },
+            {
+                "title": "李詠茵",
+                "summary": "班級：F2G | 學號：5號 | Class賬號：s20230127",
+                "details": "詳細資訊：基本\n姓名：李詠菌\n英文姓名：Yan\n班級：F2G\n學號：5號\nclass賬號：s20230127\n職務：中文科代\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "林浩仁",
+                "summary": "班級：F2G | 學號：6號 | Class賬號：未知",
+                "details": "詳細資訊：基本\n姓名：林浩仁\n英文姓名：Daniel\n班級：F2G\n學號：6號\nclass賬號：未知\n職務：歷史科代\n友情\n死黨：徐肇澤\n愛情\n追求者：未知\n喜歡的人：沒有(口供)"
+            },
+            {
+                "title": "林煒軒",
+                "summary": "班級：F2G | 學號：7號 | Class賬號：s20230039",
+                "details": "詳細資訊：基本\n姓名：林煒軒\n英文姓名：Bthan\n班級：F2G\n學號：7號\nclass賬號：s20230039\n職務：體育科代、課室鎖匙管理員\n友情\n死黨：未知\n愛情\n追求者：fbfoh\n喜歡的人：fbfoh"
+            },
+            {
+                "title": "林嘉瑤",
+                "summary": "班級：F2G | 學號：8號 | Class賬號：s20230004",
+                "details": "詳細資訊：基本\n姓名：林嘉瑤\n英文姓名：Dcbbie\n班級：F2G\n學號：8號\nclass賬號：s20230004\n職務：中閱科代\n友情\n死黨：未知姓名\n愛情\n追求者：未知\n喜歡的人：沒有"
+            },
+            {
+                "title": "施嘉琪",
+                "summary": "班級：F2G | 學號：9號 | Class賬號：s20230054",
+                "details": "詳細資訊：基本\n姓名：施嘉琪\n英文姓名：Candy\n班級：F2G\n學號：9號\nclass賬號：s20230054\n職務：班長\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "施灝華",
+                "summary": "班級：F2G | 學號：10號 | Class賬號：未知",
+                "details": "詳細資訊：基本\n姓名：施灝華\n英文姓名：Alex\n外號：阿拉伯人\n班級：F2G\n學號：10號\nclass賬號：未知\n職務：行長\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "唐家賢",
+                "summary": "班級：F2G | 學號：11號 | Class賬號：s20230081",
+                "details": "詳細資訊：基本\n姓名：唐家賢\n英文姓名：Calvin\n外號：小胖\n班級：F2G\n學號：11號\nclass賬號：s20230081\n職務：派簿專員、清紀\n友情\n死黨：未知\n愛情\n追求者：沒有\n喜歡的人：未知"
+            },
+            {
+                "title": "徐肇澤",
+                "summary": "班級：F2G | 學號：12號 | Class賬號：s20230009",
+                "details": "詳細資訊：基本\n姓名：徐肇澤\n英文姓名：Lucien\n外號：大胖\n班級：F2G\n學號：12號\nclass賬號：s20230009\n職務：行長、派簿專員\n友情\n死黨：林浩仁\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "張家綺",
+                "summary": "班級：F2G | 學號：13號 | Class賬號：s20231104",
+                "details": "詳細資訊：基本\n姓名：張家綺\n英文姓名：Gemmy\n班級：F2G\n學號：13號\nclass賬號：s20231104\n職務：化學科代\n友情\n死黨：過多，難確定\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "許世風",
+                "summary": "班級：F2G | 學號：14號 | Class賬號：s20231012",
+                "details": "詳細資訊：基本\n姓名：許世風\n英文姓名：Jack\n班級：F2G\n學號：14號\nclass賬號：s20231012\n職務：文法科代\n友情\n死黨：未知\n愛情\n追求者：沒有\n喜歡的人：無可奉告"
+            },
+            {
+                "title": "許婉淇",
+                "summary": "班級：F2G | 學號：15號 | Class賬號：s20230085",
+                "details": "詳細資訊：基本\n姓名：許婉淇\n英文姓名：Yanki\n班級：F2G\n學號：15號\nclass賬號：s20230085\n職務：健康推廣員\n友情\n死黨：吳析藍\n愛情\n追求者：沒有\n喜歡的人：沒有"
+            },
+            {
+                "title": "許樂山",
+                "summary": "班級：F2G | 學號：16號 | Class賬號：未知",
+                "details": "詳細資訊：基本\n姓名：許樂山\n英文姓名：Lawson\n外號：許留山\n班級：F2G\n學號：16號\nclass賬號：未知\n職務：科技科代\n友情\n死黨：黃昱衡\n愛情\n追求者：未知\n喜歡的人：fbgbg"
+            },
+            {
+                "title": "郭泳妍",
+                "summary": "班級：F2G | 學號：17號 | Class賬號：未知",
+                "details": "詳細資訊：基本\n姓名：郭泳妍\n英文姓名：Anna(Anna Kuok)\n班級：F2G\n學號：17號\nclass賬號：未知\n職務：課室鎖匙管理員\n友情\n死黨：未知\n愛情\n追求者：可能是fbgbh\n喜歡的人：未知"
+            },
+            {
+                "title": "郭芷瑜",
+                "summary": "班級：F2G | 學號：18號 | Class賬號：未知",
+                "details": "詳細資訊：基本\n姓名：郭芷瑜\n英文姓名：Chelsey\n外號：瑜芷熙\n班級：F2G\n學號：18號\nclass賬號：未知\n職務：派簿專員\n友情\n死黨：鄧伊楠\n愛情\n追求者：沒有\n喜歡的人：沒有"
+            },
+            {
+                "title": "陳梓銘",
+                "summary": "班級：F2G | 學號：19號 | Class賬號：s20231021",
+                "details": "詳細資訊：基本\n姓名：陳梓銘\n英文姓名：Cyrus\n班級：F2G\n學號：19號\nclass賬號：s20231021\n職務：數四科代\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "陳婷昕",
+                "summary": "班級：F2G | 學號：20號 | Class賬號：s20231036",
+                "details": "詳細資訊：基本\n姓名：陳婷昕\n英文姓名：Cathrin\n班級：F2G\n學號：20號\nclass賬號：s20231036\n職務：行長\n友情\n死黨：過多，難確定\n愛情\n追求者：fbgca\n喜歡的人：fbgca"
+            },
+            {
+                "title": "陳灝熙",
+                "summary": "班級：F2G | 學號：21號 | Class賬號：s20230138",
+                "details": "詳細資訊：基本\n姓名：陳灝熙\n英文姓名：Matthew\n班級：F2G\n學號：21號\nclass賬號：s20230138\n職務：清紀\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：可能是劉婧妍"
+            },
+            {
+                "title": "黃昱衡",
+                "summary": "班級：F2G | 學號：22號 | Class賬號：s20230112",
+                "details": "詳細資訊：基本\n姓名：黃昱衡\n英文姓名：Evan\n班級：F2G\n學號：22號\nclass賬號：s20230112\n職務：電腦科代\n友情\n死黨：許樂山\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "黃琇雯",
+                "summary": "班級：F2G | 學號：23號 | Class賬號：s20230088",
+                "details": "詳細資訊：基本\n姓名：黃琇雯\n英文姓名：Kitty\n班級：F2G\n學號：23號\nclass賬號：s20230088\n職務：生物科代\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：可能是fbdbh"
+            },
+            {
+                "title": "劉婧妍",
+                "summary": "班級：F2G | 學號：24號 | Class賬號：s20230092",
+                "details": "詳細資訊：基本\n姓名：劉婧妍\n英文姓名：Bobona\n外號：劉bobo\n班級：F2G\n學號：24號\nclass賬號：s20230092\n職務：行長\n友情\n死黨：過多，難確定\n愛情\n追求者：可能是fbgba\n喜歡的人：未知"
+            },
+            {
+                "title": "蔡寶瑩",
+                "summary": "班級：F2G | 學號：25號 | Class賬號：s20231086",
+                "details": "詳細資訊：基本\n姓名：蔡寶瑩\n英文姓名：Bobo\n班級：F2G\n學號：25號\nclass賬號：s20231086\n職務：英文科代、班長\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：未知"
+            },
+            {
+                "title": "蔣汝晴",
+                "summary": "班級：F2G | 學號：26號 | Class賬號：s20230066",
+                "details": "詳細資訊：基本\n姓名：蔣汝晴\n英文姓名：Rarity\n班級：F2G\n學號：26號\nclass賬號：s20230066\n職務：體育科代\n友情\n死黨：過多，難確定\n愛情\n追求者：黃中璜\n喜歡的人：黃中璜"
+            },
+            {
+                "title": "鄧伊楠",
+                "summary": "班級：F2G | 學號：27號 | Class賬號：s20230117",
+                "details": "詳細資訊：基本\n姓名：鄧伊楠\n英文姓名：Anna\n外號：鎖匙姐\n班級：F2G\n學號：27號\nclass賬號：s20230117\n職務：行長\n友情\n朋友：陳灝熙、李菀晴、鄧子昊\n死黨：郭芷瑜\n愛情\n追求者：fbeoc、fbgaf\n喜歡的人：fbgob"
+            },
+            {
+                "title": "黎璟臻",
+                "summary": "班級：F2G | 學號：28號 | Class賬號：s20231032",
+                "details": "詳細資訊：基本\n姓名：黎璟臻\n英文姓名：Oscar\n班級：F2G\n學號：28號\nclass賬號：s20231032\n職務：公民科代\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：可能是fbgag"
+            },
+            {
+                "title": "薛卓龍",
+                "summary": "班級：F2G | 學號：29號 | Class賬號：s20230024",
+                "details": "詳細資訊：基本\n姓名：薛卓龍\n英文姓名：Canaan\n班級：F2G\n學號：29號\nclass賬號：s20230024\n職務：行長\n友情\n死黨：未知\n愛情\n追求者：沒有\n喜歡的人：沒有"
+            },
+            {
+                "title": "藍燁康",
+                "summary": "班級：F2G | 學號：30號 | Class賬號：s20231018",
+                "details": "詳細資訊：基本\n姓名：藍燁康\n英文姓名：Blufire\n外號：藍火\n班級：F2G\n學號：30號\nclass賬號：s20231018\n職務：健康推廣員\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：沒有"
+            },
+            {
+                "title": "歐陽毅康",
+                "summary": "班級：F2G | 學號：31號 | Class賬號：未知",
+                "details": "詳細資訊：基本\n姓名：歐陽毅康\n英文姓名：noah\n班級：F2G\n學號：31號\nclass賬號：未知\n職務：物理科代\n友情\n死黨：未知\n愛情\n追求者：fbgbo\n喜歡的人：fbgbo"
+            },
+
+            //F2F
+            
+            {
+                "title": "尤長煒",
+                "summary": "班級：F2F | 學號：1號 | Class賬號：s20230026",
+                "details": ""
+            },
+            {
+                "title": "方柏喬",
+                "summary": "班級：F2F | 學號：2號 | Class賬號：s20230049",
+                "details": "詳細資訊：基本\n姓名：方柏喬\n英文姓名：未知\n班級：F2F\n學號：1號\nclass賬號：s20230049\n職務：未知\n友情\n死黨：未知\n愛情\n追求者：未知\n喜歡的人：可能是fbfab"
+            },
+            {
+                "title": "白淨絪",
+                "summary": "班級：F2F | 學號：3號 | Class賬號：s20231075",
+                "details": ""
+            },
+            {
+                "title": "吳騰臻",
+                "summary": "班級：F2F | 學號：4號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "李文樂",
+                "summary": "班級：F2F | 學號：5號 | Class賬號：s20230052",
+                "details": ""
+            },
+            {
+                "title": "李幸怡",
+                "summary": "班級：F2F | 學號：6號 | Class賬號：未知",
+                "details": "班長"
+            },
+            {
+                "title": "貝驊晉",
+                "summary": "班級：F2F | 學號：7號 | Class賬號：s20231071",
+                "details": ""
+            },
+            {
+                "title": "林芊葵",
+                "summary": "班級：F2F | 學號：8號 | Class賬號：s20230038",
+                "details": ""
+            },
+            {
+                "title": "殷浩茗",
+                "summary": "班級：F2F | 學號：9號 | Class賬號：s20230150",
+                "details": ""
+            },
+            {
+                "title": "翁瑋皓",
+                "summary": "班級：F2F | 學號：10號 | Class賬號：s20231085",
+                "details": ""
+            },
+            {
+                "title": "張名欣",
+                "summary": "班級：F2F | 學號：11號 | Class賬號：s20231038",
+                "details": ""
+            },
+            {
+                "title": "張梓琳",
+                "summary": "班級：F2F | 學號：12號 | Class賬號：s20230132",
+                "details": "詳細資訊：基本\n姓名：張梓琳\n英文姓名：Angela\n班級：F2F\n學號：12號\nclass賬號：s20230132\n職務：班長\n友情\n死黨：未知\n愛情\n追求者：方柏喬\n喜歡的人：未知"
+            },
+            {
+                "title": "張慧瀅",
+                "summary": "班級：F2F | 學號：13號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "莊涪涵",
+                "summary": "班級：F2F | 學號：14號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "郭芷穎",
+                "summary": "班級：F2F | 學號：15號 | Class賬號：s20230057",
+                "details": ""
+            },
+            {
+                "title": "陳少鋒",
+                "summary": "班級：F2F | 學號：16號 | Class賬號：s20230042",
+                "details": ""
+            },
+            {
+                "title": "陳啓揚",
+                "summary": "班級：F2F | 學號：17號 | Class賬號：s20230012",
+                "details": ""
+            },
+            {
+                "title": "曾浩柏",
+                "summary": "班級：F2F | 學號：18號 | Class賬號：s20230016",
+                "details": ""
+            },
+            {
+                "title": "曾珮嘉",
+                "summary": "班級：F2F | 學號：19號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "馮心瑤",
+                "summary": "班級：F2F | 學號：20號 | Class賬號：s20231001",
+                "details": ""
+            },
+            {
+                "title": "黃泓基",
+                "summary": "班級：F2F | 學號：21號 | Class賬號：s20231024",
+                "details": ""
+            },
+            {
+                "title": "黃楠",
+                "summary": "班級：F2F | 學號：22號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "黃嘉茵",
+                "summary": "班級：F2F | 學號：23號 | Class賬號：s20230089",
+                "details": ""
+            },
+            {
+                "title": "黃綺淇",
+                "summary": "班級：F2F | 學號：24號 | Class賬號：s20230114",
+                "details": ""
+            },
+            {
+                "title": "趙宥鈞",
+                "summary": "班級：F2F | 學號：25號 | Class賬號：s20230116",
+                "details": ""
+            },
+            {
+                "title": "鄧珺城",
+                "summary": "班級：F2F | 學號：26號 | Class賬號：s20230068",
+                "details": ""
+            },
+            {
+                "title": "戴尚龍",
+                "summary": "班級：F2F | 學號：27號 | Class賬號：s20230161",
+                "details": ""
+            },
+            {
+                "title": "謝霖煒",
+                "summary": "班級：F2F | 學號：28號 | Class賬號：s20230025",
+                "details": ""
+            },
+            {
+                "title": "羅沛詩",
+                "summary": "班級：F2F | 學號：29號 | Class賬號：s20231028",
+                "details": ""
+            },
+            {
+                "title": "譚君豪",
+                "summary": "班級：F2F | 學號：30號 | Class賬號：s20230071",
+                "details": ""
+            },
+            {
+                "title": "林智朗",
+                "summary": "班級：F2F | 學號：31號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "紀盈潔",
+                "summary": "班級：F2F | 學號：32號 | Class賬號：未知",
+                "details": ""
+            },
+            //F2E
+            {
+                "title": "甘泳華",
+                "summary": "班級：F2E | 學號：1號 | Class賬號：s20231094",
+                "details": ""
+            },
+            {
+                "title": "何倬謙",
+                "summary": "班級：F2E | 學號：2號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "吳帝邦",
+                "summary": "班級：F2E | 學號：3號 | Class賬號：s20230099",
+                "details": ""
+            },
+            {
+                "title": "吳昭怡",
+                "summary": "班級：F2E | 學號：4號 | Class賬號：s20231064",
+                "details": ""
+            },
+            {
+                "title": "吳曉彤",
+                "summary": "班級：F2E | 學號：5號 | Class賬號：s20230051",
+                "details": ""
+            },
+            {
+                "title": "呂宇翔",
+                "summary": "班級：F2E | 學號：6號 | Class賬號：s20230149",
+                "details": ""
+            },
+            {
+                "title": "李志豪",
+                "summary": "班級：F2E | 學號：7號 | Class賬號：s20231020",
+                "details": ""
+            },
+            {
+                "title": "李辰希",
+                "summary": "班級：F2E | 學號：8號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "李美欣",
+                "summary": "班級：F2E | 學號：9號 | Class賬號：s20231007",
+                "details": ""
+            },
+            {
+                "title": "李詠淇",
+                "summary": "班級：F2E | 學號：10號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "周靖柔",
+                "summary": "班級：F2E | 學號：11號 | Class賬號：s20231074",
+                "details": ""
+            },
+            {
+                "title": "招易廷",
+                "summary": "班級：F2E | 學號：12號 | Class賬號：s20230035",
+                "details": ""
+            },
+            {
+                "title": "邱愷韜",
+                "summary": "班級：F2E | 學號：13號 | Class賬號：s20231078",
+                "details": ""
+            },
+            {
+                "title": "洪幼晞",
+                "summary": "班級：F2E | 學號：14號 | Class賬號：s20230006",
+                "details": ""
+            },
+            {
+                "title": "徐苡瑄",
+                "summary": "班級：F2E | 學號：15號 | Class賬號：s20231089",
+                "details": ""
+            },
+            {
+                "title": "陳梓喬",
+                "summary": "班級：F2E | 學號：16號 | Class賬號：s20230013",
+                "details": ""
+            },
+            {
+                "title": "陳詠琳",
+                "summary": "班級：F2E | 學號：17號 | Class賬號：s20231051",
+                "details": ""
+            },
+            {
+                "title": "馮潁妍",
+                "summary": "班級：F2E | 學號：18號 | Class賬號：s20230061",
+                "details": ""
+            },
+            {
+                "title": "黃政林",
+                "summary": "班級：F2E | 學號：19號 | Class賬號：s20230111",
+                "details": ""
+            },
+            {
+                "title": "黃浩峰",
+                "summary": "班級：F2E | 學號：20號 | Class賬號：s20231079",
+                "details": ""
+            },
+            {
+                "title": "黃梓豪",
+                "summary": "班級：F2E | 學號：21號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "黃裕霖",
+                "summary": "班級：F2E | 學號：22號 | Class賬號：s20230140",
+                "details": ""
+            },
+            {
+                "title": "楊樂欣",
+                "summary": "班級：F2E | 學號：23號 | Class賬號：s20230141",
+                "details": ""
+            },
+            {
+                "title": "廖梓俊",
+                "summary": "班級：F2E | 學號：24號 | Class賬號：s20230115",
+                "details": ""
+            },
+            {
+                "title": "蔡漩霈",
+                "summary": "班級：F2E | 學號：25號 | Class賬號：s20230021",
+                "details": ""
+            },
+            {
+                "title": "鄧梓謙",
+                "summary": "班級：F2E | 學號：26號 | Class賬號：s20230118",
+                "details": ""
+            },
+            {
+                "title": "蕭俊希",
+                "summary": "班級：F2E | 學號：27號 | Class賬號：s20230069",
+                "details": ""
+            },
+            {
+                "title": "戴嘉㼆",
+                "summary": "班級：F2E | 學號：28號 | Class賬號：s20231010",
+                "details": ""
+            },
+            {
+                "title": "羅詩晴",
+                "summary": "班級：F2E | 學號：29號 | Class賬號：s20231082",
+                "details": ""
+            },
+            {
+                "title": "蔡安然",
+                "summary": "班級：F2E | 學號：30號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "吳致杰",
+                "summary": "班級：F2E | 學號：31號 | Class賬號：未知",
+                "details": ""
+            },
+            //F2D
+            {
+                "title": "文迪",
+                "summary": "班級：F2D | 學號：1號 | Class賬號：s20231033",
+                "details": ""
+            },
+            {
+                "title": "白穎彤",
+                "summary": "班級：F2D | 學號：2號 | Class賬號：s20230121",
+                "details": ""
+            },
+            {
+                "title": "朱芳萱",
+                "summary": "班級：F2D | 學號：3號 | Class賬號：s20231076",
+                "details": ""
+            },
+            {
+                "title": "吳可馨",
+                "summary": "班級：F2D | 學號：4號 | Class賬號：s20230147",
+                "details": ""
+            },
+            {
+                "title": "吳忻藍",
+                "summary": "班級：F2D | 學號：5號 | Class賬號：s20230098",
+                "details": ""
+            },
+            {
+                "title": "李子琪",
+                "summary": "班級：F2D | 學號：6號 | Class賬號：s20230094",
+                "details": ""
+            },
+            {
+                "title": "阮德麟",
+                "summary": "班級：F2D | 學號：7號 | Class賬號：s20230034",
+                "details": ""
+            },
+            {
+                "title": "林沅蔓",
+                "summary": "班級：F2D | 學號：8號 | Class賬號：s20230076",
+                "details": ""
+            },
+            {
+                "title": "林寶晴",
+                "summary": "班級：F2D | 學號：9號 | Class賬號：s20231017",
+                "details": ""
+            },
+            {
+                "title": "施嘉豪",
+                "summary": "班級：F2D | 學號：10號 | Class賬號：s20230079",
+                "details": ""
+            },
+            {
+                "title": "柯志杰",
+                "summary": "班級：F2D | 學號：11號 | Class賬號：s20230080",
+                "details": ""
+            },
+            {
+                "title": "洪宇澤",
+                "summary": "班級：F2D | 學號：12號 | Class賬號：s20231060",
+                "details": ""
+            },
+            {
+                "title": "洪帥帥",
+                "summary": "班級：F2D | 學號：13號 | Class賬號：s20231008",
+                "details": ""
+            },
+            {
+                "title": "翁藝菲",
+                "summary": "班級：F2D | 學號：14號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "袁偉航",
+                "summary": "班級：F2D | 學號：15號 | Class賬號：s20231039",
+                "details": ""
+            },
+            {
+                "title": "康朗暘",
+                "summary": "班級：F2D | 學號：16號 | Class賬號：s20231002",
+                "details": ""
+            },
+            {
+                "title": "張梓炫",
+                "summary": "班級：F2D | 學號：17號 | Class賬號：s20231091",
+                "details": ""
+            },
+            {
+                "title": "梁逸朗",
+                "summary": "班級：F2D | 學號：18號 | Class賬號：s20230083",
+                "details": ""
+            },
+            {
+                "title": "郭苡琳",
+                "summary": "班級：F2D | 學號：19號 | Class賬號：s20230086",
+                "details": ""
+            },
+            {
+                "title": "陳芷峰",
+                "summary": "班級：F2D | 學號：20號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "陳嘉琪",
+                "summary": "班級：F2D | 學號：21號 | Class賬號：s20230014",
+                "details": ""
+            },
+            {
+                "title": "黃佳琪",
+                "summary": "班級：F2D | 學號：22號 | Class賬號：s20231035",
+                "details": ""
+            },
+            {
+                "title": "黃韻寧",
+                "summary": "班級：F2D | 學號：23號 | Class賬號：s20231096",
+                "details": "班長"
+            },
+            {
+                "title": "溫洛文",
+                "summary": "班級：F2D | 學號：24號 | Class賬號：s20230045",
+                "details": ""
+            },
+            {
+                "title": "廖展華",
+                "summary": "班級：F2D | 學號：25號 | Class賬號：s20231077",
+                "details": ""
+            },
+            {
+                "title": "管胤之",
+                "summary": "班級：F2D | 學號：26號 | Class賬號：s20230046",
+                "details": ""
+            },
+            {
+                "title": "歐陽澄",
+                "summary": "班級：F2D | 學號：27號 | Class賬號：s20231084",
+                "details": ""
+            },
+            {
+                "title": "鄭誠",
+                "summary": "班級：F2D | 學號：28號 | Class賬號：s20231040",
+                "details": ""
+            },
+            {
+                "title": "譚瑋浩",
+                "summary": "班級：F2D | 學號：29號 | Class賬號：s20231093",
+                "details": ""
+            },
+            {
+                "title": "王凱傑",
+                "summary": "班級：F2D | 學號：30號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "岑汶軒",
+                "summary": "班級：F2D | 學號：31號 | Class賬號：未知",
+                "details": ""
+            },
+            //F2C
+            {
+                "title": "甘泳芝",
+                "summary": "班級：F2C | 學號：1號 | Class賬號：s20231095",
+                "details": ""
+            },
+            {
+                "title": "吳卓軒",
+                "summary": "班級：F2C | 學號：2號 | Class賬號：s20230072",
+                "details": ""
+            },
+            {
+                "title": "李頌晴",
+                "summary": "班級：F2C | 學號：3號 | Class賬號：s20230033",
+                "details": ""
+            },
+            {
+                "title": "沈嘉俊",
+                "summary": "班級：F2C | 學號：4號 | Class賬號：s20230002",
+                "details": ""
+            },
+            {
+                "title": "林熙媛",
+                "summary": "班級：F2C | 學號：5號 | Class賬號：s20230078",
+                "details": ""
+            },
+            {
+                "title": "俞桐桐",
+                "summary": "班級：F2C | 學號：6號 | Class賬號：s20230053",
+                "details": ""
+            },
+            {
+                "title": "施煒兒",
+                "summary": "班級：F2C | 學號：7號 | Class賬號：s20230005",
+                "details": ""
+            },
+            {
+                "title": "柯嘉溢",
+                "summary": "班級：F2C | 學號：8號 | Class賬號：s20230158",
+                "details": ""
+            },
+            {
+                "title": "洪家銘",
+                "summary": "班級：F2C | 學號：9號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "孫佳恩",
+                "summary": "班級：F2C | 學號：10號 | Class賬號：s20231092",
+                "details": ""
+            },
+            {
+                "title": "徐梓軒",
+                "summary": "班級：F2C | 學號：11號 | Class賬號：s20231056",
+                "details": ""
+            },
+            {
+                "title": "馬梓晴",
+                "summary": "班級：F2C | 學號：12號 | Class賬號：s20230131",
+                "details": ""
+            },
+            {
+                "title": "張善琳",
+                "summary": "班級：F2C | 學號：13號 | Class賬號：s20231099",
+                "details": ""
+            },
+            {
+                "title": "梁正昊",
+                "summary": "班級：F2C | 學號：14號 | Class賬號：s20230082",
+                "details": ""
+            },
+            {
+                "title": "梁健誠",
+                "summary": "班級：F2C | 學號：15號 | Class賬號：s20230145",
+                "details": ""
+            },
+            {
+                "title": "莊嘉樂",
+                "summary": "班級：F2C | 學號：16號 | Class賬號：s20230133",
+                "details": ""
+            },
+            {
+                "title": "莫梓軒",
+                "summary": "班級：F2C | 學號：17號 | Class賬號：s20231073",
+                "details": ""
+            },
+            {
+                "title": "陳一心",
+                "summary": "班級：F2C | 學號：18號 | Class賬號：s20230134",
+                "details": ""
+            },
+            {
+                "title": "陳姿穎",
+                "summary": "班級：F2C | 學號：19號 | Class賬號：s20231066",
+                "details": ""
+            },
+            {
+                "title": "陳昭妍",
+                "summary": "班級：F2C | 學號：20號 | Class賬號：s20231101",
+                "details": ""
+            },
+            {
+                "title": "陳智謙",
+                "summary": "班級：F2C | 學號：21號 | Class賬號：s20230059",
+                "details": ""
+            },
+            {
+                "title": "陳樂天",
+                "summary": "班級：F2C | 學號：22號 | Class賬號：s20230015",
+                "details": ""
+            },
+            {
+                "title": "陶宇軒",
+                "summary": "班級：F2C | 學號：23號 | Class賬號：s20231013",
+                "details": ""
+            },
+            {
+                "title": "黃子墨",
+                "summary": "班級：F2C | 學號：24號 | Class賬號：s20230110",
+                "details": ""
+            },
+            {
+                "title": "劉曉昊",
+                "summary": "班級：F2C | 學號：25號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "蔡凱翔",
+                "summary": "班級：F2C | 學號：26號 | Class賬號：s20230064",
+                "details": ""
+            },
+            {
+                "title": "蔡嘉韜",
+                "summary": "班級：F2C | 學號：27號 | Class賬號：s20231103",
+                "details": ""
+            },
+            {
+                "title": "鄧嘉萱",
+                "summary": "班級：F2C | 學號：28號 | Class賬號：s20230119",
+                "details": ""
+            },
+            {
+                "title": "羅澤城",
+                "summary": "班級：F2C | 學號：29號 | Class賬號：s20231037",
+                "details": ""
+            },
+            {
+                "title": "楊思瀅",
+                "summary": "班級：F2C | 學號：30號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "魏雨辰",
+                "summary": "班級：F2C | 學號：31號 | Class賬號：未知",
+                "details": ""
+            },
+            //F2B
+            {
+                "title": "王若瑩",
+                "summary": "班級：F2B | 學號：1號 | Class賬號：s20230027",
+                "details": "班長"
+            },
+            {
+                "title": "古珞奇",
+                "summary": "班級：F2B | 學號：2號 | Class賬號：s20230095",
+                "details": ""
+            },
+            {
+                "title": "朱紹敏",
+                "summary": "班級：F2B | 學號：3號 | Class賬號：s20231023",
+                "details": ""
+            },
+            {
+                "title": "余穎心",
+                "summary": "班級：F2B | 學號：4號 | Class賬號：s20230123",
+                "details": "生物科代"
+            },
+            {
+                "title": "吳匡",
+                "summary": "班級：F2B | 學號：5號 | Class賬號：s20230050",
+                "details": ""
+            },
+            {
+                "title": "呂文曦",
+                "summary": "班級：F2B | 學號：6號 | Class賬號：s20230162",
+                "details": ""
+            },
+            {
+                "title": "呂靜芳",
+                "summary": "班級：F2B | 學號：7號 | Class賬號：s20231070",
+                "details": ""
+            },
+            {
+                "title": "李佳榮",
+                "summary": "班級：F2B | 學號：8號 | Class賬號：s20230001",
+                "details": ""
+            },
+            {
+                "title": "李翠琳",
+                "summary": "班級：F2B | 學號：9號 | Class賬號：s20230075",
+                "details": ""
+            },
+            {
+                "title": "林品丞",
+                "summary": "班級：F2B | 學號：10號 | Class賬號：s20230128",
+                "details": ""
+            },
+            {
+                "title": "侯夢瑤",
+                "summary": "班級：F2B | 學號：11號 | Class賬號：s20230130",
+                "details": "班長"
+            },
+            {
+                "title": "施騰修",
+                "summary": "班級：F2B | 學號：12號 | Class賬號：s20230040",
+                "details": ""
+            },
+            {
+                "title": "柯璟旻",
+                "summary": "班級：F2B | 學號：13號 | Class賬號：s20230159",
+                "details": ""
+            },
+            {
+                "title": "孫德銘",
+                "summary": "班級：F2B | 學號：14號 | Class賬號：s20230008",
+                "details": ""
+            },
+            {
+                "title": "梁浩漾",
+                "summary": "班級：F2B | 學號：15號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "陳均澔",
+                "summary": "班級：F2B | 學號：16號 | Class賬號：s20230058",
+                "details": ""
+            },
+            {
+                "title": "陳樂桐",
+                "summary": "班級：F2B | 學號：17號 | Class賬號：s20230137",
+                "details": ""
+            },
+            {
+                "title": "陸浩然",
+                "summary": "班級：F2B | 學號：18號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "程文晧",
+                "summary": "班級：F2B | 學號：19號 | Class賬號：s20231011",
+                "details": "文法科代"
+            },
+            {
+                "title": "黃張焮",
+                "summary": "班級：F2B | 學號：20號 | Class賬號：s20230062",
+                "details": ""
+            },
+            {
+                "title": "黃梓晴",
+                "summary": "班級：F2B | 學號：21號 | Class賬號：s20230017",
+                "details": ""
+            },
+            {
+                "title": "黃銘渝",
+                "summary": "班級：F2B | 學號：22號 | Class賬號：s20231034",
+                "details": ""
+            },
+            {
+                "title": "劉俊然",
+                "summary": "班級：F2B | 學號：23號 | Class賬號：s20231081",
+                "details": ""
+            },
+            {
+                "title": "劉俊瑋",
+                "summary": "班級：F2B | 學號：24號 | Class賬號：s20230165",
+                "details": ""
+            },
+            {
+                "title": "劉博溢",
+                "summary": "班級：F2B | 學號：25號 | Class賬號：s20230019",
+                "details": ""
+            },
+            {
+                "title": "歐陽美寧",
+                "summary": "班級：F2B | 學號：26號 | Class賬號：s20231015",
+                "details": ""
+            },
+            {
+                "title": "蔡曉菡",
+                "summary": "班級：F2B | 學號：27號 | Class賬號：s20230065",
+                "details": ""
+            },
+            {
+                "title": "鄧子昊",
+                "summary": "班級：F2B | 學號：28號 | Class賬號：s20230067",
+                "details": "班長"
+            },
+            {
+                "title": "賴俊暉",
+                "summary": "班級：F2B | 學號：29號 | Class賬號：s20230143",
+                "details": ""
+            },
+            {
+                "title": "譚熙琳",
+                "summary": "班級：F2B | 學號：30號 | Class賬號：s20230155",
+                "details": ""
+            },
+            {
+                "title": "趙韻柔",
+                "summary": "班級：F2B | 學號：31號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "吳洛嘉",
+                "summary": "班級：F2B | 學號：32號 | Class賬號：未知",
+                "details": ""
+            },
+            //F2B
+            {
+                "title": "王鐵奕",
+                "summary": "班級：F2A | 學號：1號 | Class賬號：s20230028",
+                "details": ""
+            },
+            {
+                "title": "呂頌和",
+                "summary": "班級：F2A | 學號：2號 | Class賬號：s20230124",
+                "details": ""
+            },
+            {
+                "title": "李君晧",
+                "summary": "班級：F2A | 學號：3號 | Class賬號：s20230125",
+                "details": ""
+            },
+            {
+                "title": "李俊熙",
+                "summary": "班級：F2A | 學號：4號 | Class賬號：s20231006",
+                "details": ""
+            },
+            {
+                "title": "李珊瑜",
+                "summary": "班級：F2A | 學號：5號 | Class賬號：s20231067",
+                "details": ""
+            },
+            {
+                "title": "李雪清",
+                "summary": "班級：F2A | 學號：6號 | Class賬號：s20230031",
+                "details": ""
+            },
+            {
+                "title": "林泓熹",
+                "summary": "班級：F2A | 學號：7號 | Class賬號：s20230003",
+                "details": ""
+            },
+            {
+                "title": "林康穎",
+                "summary": "班級：F2A | 學號：8號 | Class賬號：s20230129",
+                "details": ""
+            },
+            {
+                "title": "林煒瀠",
+                "summary": "班級：F2A | 學號：9號 | Class賬號：s20231009",
+                "details": ""
+            },
+            {
+                "title": "紀瑩諾",
+                "summary": "班級：F2A | 學號：10號 | Class賬號：s20230007",
+                "details": ""
+            },
+            {
+                "title": "高浩賢",
+                "summary": "班級：F2A | 學號：11號 | Class賬號：s20231090",
+                "details": ""
+            },
+            {
+                "title": "張懿",
+                "summary": "班級：F2A | 學號：12號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "梁鑫妮",
+                "summary": "班級：F2A | 學號：13號 | Class賬號：s20231019",
+                "details": ""
+            },
+            {
+                "title": "郭亮玥",
+                "summary": "班級：F2A | 學號：14號 | Class賬號：s20230011",
+                "details": ""
+            },
+            {
+                "title": "陳坤煌",
+                "summary": "班級：F2A | 學號：15號 | Class賬號：s20231025",
+                "details": ""
+            },
+            {
+                "title": "陳金宜",
+                "summary": "班級：F2A | 學號：16號 | Class賬號：s20231016",
+                "details": ""
+            },
+            {
+                "title": "陳恩瀚",
+                "summary": "班級：F2A | 學號：17號 | Class賬號：s20230136",
+                "details": ""
+            },
+            {
+                "title": "陳樂弦",
+                "summary": "班級：F2A | 學號：18號 | Class賬號：s20230060",
+                "details": ""
+            },
+            {
+                "title": "曾雋軒",
+                "summary": "班級：F2A | 學號：19號 | Class賬號：s20230087",
+                "details": ""
+            },
+            {
+                "title": "曾廣菲",
+                "summary": "班級：F2A | 學號：20號 | Class賬號：s20230139",
+                "details": ""
+            },
+            {
+                "title": "黃中璜",
+                "summary": "班級：F2A | 學號：21號 | Class賬號：s20230153",
+                "details": ""
+            },
+            {
+                "title": "黃耀祖",
+                "summary": "班級：F2A | 學號：22號 | Class賬號：s20230090",
+                "details": ""
+            },
+            {
+                "title": "楊語馨",
+                "summary": "班級：F2A | 學號：23號 | Class賬號：s20230018",
+                "details": ""
+            },
+            {
+                "title": "褚浚豪",
+                "summary": "班級：F2A | 學號：24號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "趙靜忻",
+                "summary": "班級：F2A | 學號：25號 | Class賬號：s20231022",
+                "details": ""
+            },
+            {
+                "title": "劉浚揚",
+                "summary": "班級：F2A | 學號：26號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "盧尉琳",
+                "summary": "班級：F2A | 學號：27號 | Class賬號：s20231083",
+                "details": ""
+            },
+            {
+                "title": "賴怡嵐",
+                "summary": "班級：F2A | 學號：28號 | Class賬號：s20231030",
+                "details": ""
+            },
+            {
+                "title": "戴泳怡",
+                "summary": "班級：F2A | 學號：29號 | Class賬號：s20230023",
+                "details": ""
+            },
+            {
+                "title": "何心瑩",
+                "summary": "班級：F2A | 學號：30號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "王樂恆",
+                "summary": "班級：F2A | 學號：31號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "楊思澄",
+                "summary": "班級：F2A | 學號：32號 | Class賬號：未知",
+                "details": ""
+            },
+            
+            //F1A
+
+            {
+                "title": "王君瑤",
+                "summary": "班級：F1A(24-25) | 學號：1號 | Class賬號：s20240001",
+                "details": ""
+            },
+            {
+                "title": "何文謙",
+                "summary": "班級：F1A(24-25) | 學號：2號 | Class賬號：s20240173",
+                "details": ""
+            },
+            {
+                "title": "何澤謙",
+                "summary": "班級：F1A(24-25) | 學號：3號 | Class賬號：s20240139",
+                "details": ""
+            },
+            {
+                "title": "吳皆希",
+                "summary": "班級：F1A(24-25) | 學號：4號 | Class賬號：s20240055",
+                "details": ""
+            },
+            {
+                "title": "吳梓匡",
+                "summary": "班級：F1A(24-25) | 學號：5號 | Class賬號：s20240140",
+                "details": ""
+            },
+            {
+                "title": "李子軒",
+                "summary": "班級：F1A(24-25) | 學號：6號 | Class賬號：s20240184",
+                "details": ""
+            },
+            {
+                "title": "李沁穎",
+                "summary": "班級：F1A(24-25) | 學號：7號 | Class賬號：s20240008",
+                "details": ""
+            },
+            {
+                "title": "李承澤",
+                "summary": "班級：F1A(24-25) | 學號：8號 | Class賬號：s20240083",
+                "details": ""
+            },
+            {
+                "title": "施穎琳",
+                "summary": "班級：F1A(24-25) | 學號：9號 | Class賬號：s20240037",
+                "details": ""
+            },
+            {
+                "title": "洪綵敏",
+                "summary": "班級：F1A(24-25) | 學號：10號 | Class賬號：s20240182",
+                "details": ""
+            },
+            {
+                "title": "胡銘汛",
+                "summary": "班級：F1A(24-25) | 學號：11號 | Class賬號：s20240116",
+                "details": ""
+            },
+            {
+                "title": "苗葉兒",
+                "summary": "班級：F1A(24-25) | 學號：12號 | Class賬號：s20240057",
+                "details": ""
+            },
+            {
+                "title": "張凱晴",
+                "summary": "班級：F1A(24-25) | 學號：13號 | Class賬號：s20240169",
+                "details": ""
+            },
+            {
+                "title": "張紫昕",
+                "summary": "班級：F1A(24-25) | 學號：14號 | Class賬號：s20240038",
+                "details": ""
+            },
+            {
+                "title": "陸奕名",
+                "summary": "班級：F1A(24-25) | 學號：15號 | Class賬號：s20240099",
+                "details": ""
+            },
+            {
+                "title": "黃沛子",
+                "summary": "班級：F1A(24-25) | 學號：16號 | Class賬號：s20240044",
+                "details": ""
+            },
+            {
+                "title": "黃冠雄",
+                "summary": "班級：F1A(24-25) | 學號：17號 | Class賬號：s20240065",
+                "details": ""
+            },
+            {
+                "title": "黃翔昊",
+                "summary": "班級：F1A(24-25) | 學號：18號 | Class賬號：s20240189",
+                "details": ""
+            },
+            {
+                "title": "黃嘉嵐",
+                "summary": "班級：F1A(24-25) | 學號：19號 | Class賬號：s20240127",
+                "details": ""
+            },
+            {
+                "title": "楊蘊惠",
+                "summary": "班級：F1A(24-25) | 學號：20號 | Class賬號：s20240128",
+                "details": ""
+            },
+            {
+                "title": "劉梓翔",
+                "summary": "班級：F1A(24-25) | 學號：21號 | Class賬號：s20240017",
+                "details": ""
+            },
+            {
+                "title": "黎昊嘉",
+                "summary": "班級：F1A(24-25) | 學號：22號 | Class賬號：s20240076",
+                "details": ""
+            },
+            {
+                "title": "鍾釗平",
+                "summary": "班級：F1A(24-25) | 學號：23號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "譚駿熙",
+                "summary": "班級：F1A(24-25) | 學號：24號 | Class賬號：s20240078",
+                "details": ""
+            },
+            {
+                "title": "李婧瑜",
+                "summary": "班級：F1A(24-25) | 學號：25號 | Class賬號：s20241014",
+                "details": ""
+            },
+            {
+                "title": "施睿軒",
+                "summary": "班級：F1A(24-25) | 學號：26號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "陳子淇",
+                "summary": "班級：F1A(24-25) | 學號：27號 | Class賬號：s20241025",
+                "details": ""
+            },
+            {
+                "title": "陳泳旗",
+                "summary": "班級：F1A(24-25) | 學號：28號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "陳皓庭",
+                "summary": "班級：F1A(24-25) | 學號：29號 | Class賬號：s20241052",
+                "details": ""
+            },
+            {
+                "title": "趙婥婷",
+                "summary": "班級：F1A(24-25) | 學號：30號 | Class賬號：s20241032",
+                "details": ""
+            },
+            {
+                "title": "鄭紫欣",
+                "summary": "班級：F1A(24-25) | 學號：31號 | Class賬號：s20241011",
+                "details": ""
+            },
+            {
+                "title": "顏彤",
+                "summary": "班級：F1A(24-25) | 學號：32號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "呂凱鑫",
+                "summary": "班級：F1A(24-25) | 學號：33號 | Class賬號：未知",
+                "details": ""
+            },
+
+            //F1B
+
+            {
+                "title": "王雪瑩",
+                "summary": "班級：F1B(24-25) | 學號：1號 | Class賬號：s20240172",
+                "details": ""
+            },
+            {
+                "title": "甘梓瑤",
+                "summary": "班級：F1B(24-25) | 學號：2號 | Class賬號：s20240079",
+                "details": ""
+            },
+            {
+                "title": "白穎禧",
+                "summary": "班級：F1B(24-25) | 學號：3號 | Class賬號：s20240137",
+                "details": ""
+            },
+            {
+                "title": "任志朗",
+                "summary": "班級：F1B(24-25) | 學號：4號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "何卓昕",
+                "summary": "班級：F1B(24-25) | 學號：5號 | Class賬號：s20240108",
+                "details": ""
+            },
+            {
+                "title": "吳穎熙",
+                "summary": "班級：F1B(24-25) | 學號：6號 | Class賬號：s20240174",
+                "details": ""
+            },
+            {
+                "title": "李雨晴",
+                "summary": "班級：F1B(24-25) | 學號：7號 | Class賬號：s20240085",
+                "details": ""
+            },
+            {
+                "title": "周子喬",
+                "summary": "班級：F1B(24-25) | 學號：8號 | Class賬號：s20240089",
+                "details": ""
+            },
+            {
+                "title": "周愷玥",
+                "summary": "班級：F1B(24-25) | 學號：9號 | Class賬號：s20240144",
+                "details": ""
+            },
+            {
+                "title": "姚成鋒",
+                "summary": "班級：F1B(24-25) | 學號：10號 | Class賬號：s20240091",
+                "details": ""
+            },
+            {
+                "title": "柯秉楨",
+                "summary": "班級：F1B(24-25) | 學號：11號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "徐雨桐",
+                "summary": "班級：F1B(24-25) | 學號：12號 | Class賬號：s20240058",
+                "details": ""
+            },
+            {
+                "title": "堵祉澄",
+                "summary": "班級：F1B(24-25) | 學號：13號 | Class賬號：s20240012",
+                "details": ""
+            },
+            {
+                "title": "張綺芯",
+                "summary": "班級：F1B(24-25) | 學號：14號 | Class賬號：s20240013",
+                "details": ""
+            },
+            {
+                "title": "梁瑋峰",
+                "summary": "班級：F1B(24-25) | 學號：15號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "許子晴",
+                "summary": "班級：F1B(24-25) | 學號：16號 | Class賬號：s20240151",
+                "details": ""
+            },
+            {
+                "title": "陳文謙",
+                "summary": "班級：F1B(24-25) | 學號：17號 | Class賬號：s20240153",
+                "details": ""
+            },
+            {
+                "title": "曾翔浩",
+                "summary": "班級：F1B(24-25) | 學號：18號 | Class賬號：s20240064",
+                "details": ""
+            },
+            {
+                "title": "黃君晞",
+                "summary": "班級：F1B(24-25) | 學號：19號 | Class賬號：s20240157",
+                "details": ""
+            },
+            {
+                "title": "黃凱淋",
+                "summary": "班級：F1B(24-25) | 學號：20號 | Class賬號：s20240046",
+                "details": ""
+            },
+            {
+                "title": "楊睿劼",
+                "summary": "班級：F1B(24-25) | 學號：21號 | Class賬號：s20240102",
+                "details": ""
+            },
+            {
+                "title": "葉炘明",
+                "summary": "班級：F1B(24-25) | 學號：22號 | Class賬號：s20240070",
+                "details": ""
+            },
+            {
+                "title": "蔡沛瑜",
+                "summary": "班級：F1B(24-25) | 學號：23號 | Class賬號：s20240165",
+                "details": ""
+            },
+            {
+                "title": "鍾榮軒",
+                "summary": "班級：F1B(24-25) | 學號：24號 | Class賬號：s20240077",
+                "details": ""
+            },
+            {
+                "title": "王心盈",
+                "summary": "班級：F1B(24-25) | 學號：25號 | Class賬號：s20241081",
+                "details": ""
+            },
+            {
+                "title": "王晟榆",
+                "summary": "班級：F1B(24-25) | 學號：26號 | Class賬號：s20241021",
+                "details": ""
+            },
+            {
+                "title": "杜宇豪",
+                "summary": "班級：F1B(24-25) | 學號：27號 | Class賬號：s20241073",
+                "details": ""
+            },
+            {
+                "title": "柯恩彤",
+                "summary": "班級：F1B(24-25) | 學號：28號 | Class賬號：s20241056",
+                "details": ""
+            },
+            {
+                "title": "徐恬熙",
+                "summary": "班級：F1B(24-25) | 學號：29號 | Class賬號：s20241044",
+                "details": ""
+            },
+            {
+                "title": "黃景翹",
+                "summary": "班級：F1B(24-25) | 學號：30號 | Class賬號：s20241016",
+                "details": ""
+            },
+            {
+                "title": "黃煒皓",
+                "summary": "班級：F1B(24-25) | 學號：31號 | Class賬號：s20241031",
+                "details": ""
+            },
+            {
+                "title": "葉嘉浚",
+                "summary": "班級：F1B(24-25) | 學號：32號 | Class賬號：s20241064",
+                "details": ""
+            },
+            {
+                "title": "蘇倩瑜",
+                "summary": "班級：F1B(24-25) | 學號：33號 | Class賬號：s20241005",
+                "details": ""
+            },
+            {
+                "title": "吳至軒",
+                "summary": "班級：F1B(24-25) | 學號：34號 | Class賬號：s20240004",
+                "details": ""
+            },
+
+            //F1C
+
+            {
+                "title": "王遠卓",
+                "summary": "班級：F1C(24-25) | 學號：1號 | Class賬號：s20240027",
+                "details": ""
+            },
+            {
+                "title": "余丹月",
+                "summary": "班級：F1C(24-25) | 學號：2號 | Class賬號：s20240030",
+                "details": ""
+            },
+            {
+                "title": "李耀愷",
+                "summary": "班級：F1C(24-25) | 學號：3號 | Class賬號：s20240010",
+                "details": ""
+            },
+            {
+                "title": "阮駿希",
+                "summary": "班級：F1C(24-25) | 學號：4號 | Class賬號：s20240088",
+                "details": ""
+            },
+            {
+                "title": "林上德",
+                "summary": "班級：F1C(24-25) | 學號：5號 | Class賬號：s20240035",
+                "details": ""
+            },
+            {
+                "title": "侯天朗",
+                "summary": "班級：F1C(24-25) | 學號：6號 | Class賬號：s20240036",
+                "details": ""
+            },
+            {
+                "title": "翁裕楊",
+                "summary": "班級：F1C(24-25) | 學號：7號 | Class賬號：s20240093",
+                "details": ""
+            },
+            {
+                "title": "翁嘉駿",
+                "summary": "班級：F1C(24-25) | 學號：8號 | Class賬號：s20240059",
+                "details": ""
+            },
+            {
+                "title": "張顥耀",
+                "summary": "班級：F1C(24-25) | 學號：9號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "郭行知",
+                "summary": "班級：F1C(24-25) | 學號：10號 | Class賬號：s20240062",
+                "details": ""
+            },
+            {
+                "title": "陳子皓",
+                "summary": "班級：F1C(24-25) | 學號：11號 | Class賬號：s20240120",
+                "details": ""
+            },
+            {
+                "title": "陳梓亮",
+                "summary": "班級：F1C(24-25) | 學號：12號 | Class賬號：s20240014",
+                "details": ""
+            },
+            {
+                "title": "陳頌妍",
+                "summary": "班級：F1C(24-25) | 學號：13號 | Class賬號：s20240122",
+                "details": ""
+            },
+            {
+                "title": "程韋捷",
+                "summary": "班級：F1C(24-25) | 學號：14號 | Class賬號：s20240043",
+                "details": ""
+            },
+            {
+                "title": "黃政皓",
+                "summary": "班級：F1C(24-25) | 學號：15號 | Class賬號：s20240125",
+                "details": ""
+            },
+            {
+                "title": "黃敏瑤",
+                "summary": "班級：F1C(24-25) | 學號：16號 | Class賬號：s20240100",
+                "details": ""
+            },
+            {
+                "title": "黃慧柔",
+                "summary": "班級：F1C(24-25) | 學號：17號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "楊裕玲",
+                "summary": "班級：F1C(24-25) | 學號：18號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "雷銘諾",
+                "summary": "班級：F1C(24-25) | 學號：19號 | Class賬號：s20240072",
+                "details": ""
+            },
+            {
+                "title": "劉旺",
+                "summary": "班級：F1C(24-25) | 學號：20號 | Class賬號：s20240129",
+                "details": ""
+            },
+            {
+                "title": "劉潔渝",
+                "summary": "班級：F1C(24-25) | 學號：21號 | Class賬號：s20240050",
+                "details": ""
+            },
+            {
+                "title": "鄭靖瞳",
+                "summary": "班級：F1C(24-25) | 學號：22號 | Class賬號：s20240175",
+                "details": ""
+            },
+            {
+                "title": "鄭錦欣",
+                "summary": "班級：F1C(24-25) | 學號：23號 | Class賬號：s20240019",
+                "details": ""
+            },
+            {
+                "title": "蘇子晴",
+                "summary": "班級：F1C(24-25) | 學號：24號 | Class賬號：s20240024",
+                "details": ""
+            },
+            {
+                "title": "朱喜怡",
+                "summary": "班級：F1C(24-25) | 學號：25號 | Class賬號：s20241048",
+                "details": ""
+            },
+            {
+                "title": "李熠祺",
+                "summary": "班級：F1C(24-25) | 學號：26號 | Class賬號：s20241076",
+                "details": ""
+            },
+            {
+                "title": "張柏希",
+                "summary": "班級：F1C(24-25) | 學號：27號 | Class賬號：s20241050",
+                "details": ""
+            },
+            {
+                "title": "梁桂瑜",
+                "summary": "班級：F1C(24-25) | 學號：28號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "淦嘉麗",
+                "summary": "班級：F1C(24-25) | 學號：29號 | Class賬號：s20241001",
+                "details": ""
+            },
+            {
+                "title": "黃穎兒",
+                "summary": "班級：F1C(24-25) | 學號：30號 | Class賬號：s20241022",
+                "details": ""
+            },
+            {
+                "title": "黃懿喃",
+                "summary": "班級：F1C(24-25) | 學號：31號 | Class賬號：s20241010",
+                "details": ""
+            },
+            {
+                "title": "譚芷欣",
+                "summary": "班級：F1C(24-25) | 學號：32號 | Class賬號：s20241078",
+                "details": ""
+            },
+
+            //F1D
+
+            {
+                "title": "伍子駿",
+                "summary": "班級：F1D(24-25) | 學號：1號 | Class賬號：s20240107",
+                "details": ""
+            },
+            {
+                "title": "庄芷欣",
+                "summary": "班級：F1D(24-25) | 學號：2號 | Class賬號：s20240029",
+                "details": ""
+            },
+            {
+                "title": "何宇軒",
+                "summary": "班級：F1D(24-25) | 學號：3號 | Class賬號：s20240080",
+                "details": ""
+            },
+            {
+                "title": "吳文鏵",
+                "summary": "班級：F1D(24-25) | 學號：4號 | Class賬號：s20240004",
+                "details": ""
+            },
+            {
+                "title": "李晴彤",
+                "summary": "班級：F1D(24-25) | 學號：5號 | Class賬號：s20240143",
+                "details": ""
+            },
+            {
+                "title": "杜靜媃",
+                "summary": "班級：F1D(24-25) | 學號：6號 | Class賬號：s20240032",
+                "details": ""
+            },
+            {
+                "title": "梁希敏",
+                "summary": "班級：F1D(24-25) | 學號：7號 | Class賬號：s20240149",
+                "details": ""
+            },
+            {
+                "title": "梁樂恆",
+                "summary": "班級：F1D(24-25) | 學號：8號 | Class賬號：s20240150",
+                "details": ""
+            },
+            {
+                "title": "郭景天",
+                "summary": "班級：F1D(24-25) | 學號：9號 | Class賬號：s20240095",
+                "details": ""
+            },
+            {
+                "title": "陳子晉",
+                "summary": "班級：F1D(24-25) | 學號：10號 | Class賬號：s20240152",
+                "details": ""
+            },
+            {
+                "title": "陳泳軒",
+                "summary": "班級：F1D(24-25) | 學號：11號 | Class賬號：s20240096",
+                "details": ""
+            },
+            {
+                "title": "陳奕濠",
+                "summary": "班級：F1D(24-25) | 學號：12號 | Class賬號：s20240098",
+                "details": ""
+            },
+            {
+                "title": "陳婧",
+                "summary": "班級：F1D(24-25) | 學號：13號 | Class賬號：s20240041",
+                "details": ""
+            },
+            {
+                "title": "陸澤林",
+                "summary": "班級：F1D(24-25) | 學號：14號 | Class賬號：s20240155",
+                "details": ""
+            },
+            {
+                "title": "彭沛鏗",
+                "summary": "班級：F1D(24-25) | 學號：15號 | Class賬號：s20240156",
+                "details": ""
+            },
+            {
+                "title": "黃芷穎",
+                "summary": "班級：F1D(24-25) | 學號：16號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "黃浠晴",
+                "summary": "班級：F1D(24-25) | 學號：17號 | Class賬號：s20240067",
+                "details": ""
+            },
+            {
+                "title": "黃靖景",
+                "summary": "班級：F1D(24-25) | 學號：18號 | Class賬號：s20240158",
+                "details": ""
+            },
+            {
+                "title": "褚泳妍",
+                "summary": "班級：F1D(24-25) | 學號：19號 | Class賬號：s20240016",
+                "details": ""
+            },
+            {
+                "title": "劉尊",
+                "summary": "班級：F1D(24-25) | 學號：20號 | Class賬號：s20240164",
+                "details": ""
+            },
+            {
+                "title": "蔡苡澄",
+                "summary": "班級：F1D(24-25) | 學號：21號 | Class賬號：s20240174",
+                "details": ""
+            },
+            {
+                "title": "蔡溢希",
+                "summary": "班級：F1D(24-25) | 學號：22號 | Class賬號：s20240018",
+                "details": ""
+            },
+            {
+                "title": "鄭小玥",
+                "summary": "班級：F1D(24-25) | 學號：23號 | Class賬號：s20240131",
+                "details": ""
+            },
+            {
+                "title": "蕭允正",
+                "summary": "班級：F1D(24-25) | 學號：24號 | Class賬號：s20240163",
+                "details": ""
+            },
+            {
+                "title": "蕭湋霖",
+                "summary": "班級：F1D(24-25) | 學號：25號 | Class賬號：s20240053",
+                "details": ""
+            },
+            {
+                "title": "蘇紀衡",
+                "summary": "班級：F1D(24-25) | 學號：26號 | Class賬號：s20240025",
+                "details": ""
+            },
+            {
+                "title": "李敏",
+                "summary": "班級：F1D(24-25) | 學號：27號 | Class賬號：s20241060",
+                "details": ""
+            },
+            {
+                "title": "張藍尹",
+                "summary": "班級：F1D(24-25) | 學號：28號 | Class賬號：s20241002",
+                "details": ""
+            },
+            {
+                "title": "梁珈珩",
+                "summary": "班級：F1D(24-25) | 學號：29號 | Class賬號：s20241061",
+                "details": ""
+            },
+            {
+                "title": "陳泳華",
+                "summary": "班級：F1D(24-25) | 學號：30號 | Class賬號：s20241070",
+                "details": ""
+            },
+            {
+                "title": "曾曉琳",
+                "summary": "班級：F1D(24-25) | 學號：31號 | Class賬號：s20241026",
+                "details": ""
+            },
+            {
+                "title": "葉瑋銘",
+                "summary": "班級：F1D(24-25) | 學號：32號 | Class賬號：s20241006",
+                "details": ""
+            },
+            {
+                "title": "葉靜妍",
+                "summary": "班級：F1D(24-25) | 學號：33號 | Class賬號：s20241009",
+                "details": ""
+            },
+            {
+                "title": "潘逸晴",
+                "summary": "班級：F1D(24-25) | 學號：34號 | Class賬號：s20241020",
+                "details": ""
+            },
+            {
+                "title": "黃敬軒",
+                "summary": "班級：F1D(24-25) | 學號：35號 | Class賬號：未知",
+                "details": ""
+            },
+
+            //F1E
+
+            {
+                "title": "何柏龍",
+                "summary": "班級：F1E(24-25) | 學號：1號 | Class賬號：s20240081",
+                "details": ""
+            },
+            {
+                "title": "何祉芊",
+                "summary": "班級：F1E(24-25) | 學號：2號 | Class賬號：s20240003",
+                "details": ""
+            },
+            {
+                "title": "余昊",
+                "summary": "班級：F1E(24-25) | 學號：3號 | Class賬號：s20240109",
+                "details": ""
+            },
+            {
+                "title": "吳玥彤",
+                "summary": "班級：F1E(24-25) | 學號：4號 | Class賬號：s20240006",
+                "details": ""
+            },
+            {
+                "title": "吳恩瑀",
+                "summary": "班級：F1E(24-25) | 學號：5號 | Class賬號：s20240082",
+                "details": ""
+            },
+            {
+                "title": "李玥翹",
+                "summary": "班級：F1E(24-25) | 學號：6號 | Class賬號：s20240084",
+                "details": ""
+            },
+            {
+                "title": "李思進",
+                "summary": "班級：F1E(24-25) | 學號：7號 | Class賬號：s20240086",
+                "details": ""
+            },
+            {
+                "title": "周卓彤",
+                "summary": "班級：F1E(24-25) | 學號：8號 | Class賬號：s20240033",
+                "details": ""
+            },
+            {
+                "title": "周柏謙",
+                "summary": "班級：F1E(24-25) | 學號：9號 | Class賬號：s20240034",
+                "details": ""
+            },
+            {
+                "title": "林卓熙",
+                "summary": "班級：F1E(24-25) | 學號：10號 | Class賬號：s20240090",
+                "details": ""
+            },
+            {
+                "title": "林嘉承",
+                "summary": "班級：F1E(24-25) | 學號：11號 | Class賬號：s20240145",
+                "details": ""
+            },
+            {
+                "title": "洪誠濠",
+                "summary": "班級：F1E(24-25) | 學號：12號 | Class賬號：s20240147",
+                "details": ""
+            },
+            {
+                "title": "容晞庭",
+                "summary": "班級：F1E(24-25) | 學號：13號 | Class賬號：s20240168",
+                "details": ""
+            },
+            {
+                "title": "馬廉皓",
+                "summary": "班級：F1E(24-25) | 學號：14號 | Class賬號：s20240060",
+                "details": ""
+            },
+            {
+                "title": "張家瑜",
+                "summary": "班級：F1E(24-25) | 學號：15號 | Class賬號：s20240175",
+                "details": ""
+            },
+            {
+                "title": "傅玥",
+                "summary": "班級：F1E(24-25) | 學號：16號 | Class賬號：s20240123",
+                "details": ""
+            },
+            {
+                "title": "曾薈穎",
+                "summary": "班級：F1E(24-25) | 學號：17號 | Class賬號：s20240124",
+                "details": ""
+            },
+            {
+                "title": "黃梓朗",
+                "summary": "班級：F1E(24-25) | 學號：18號 | Class賬號：s20240126",
+                "details": ""
+            },
+            {
+                "title": "董詩穎",
+                "summary": "班級：F1E(24-25) | 學號：19號 | Class賬號：s20240071",
+                "details": ""
+            },
+            {
+                "title": "趙浩鉉",
+                "summary": "班級：F1E(24-25) | 學號：20號 | Class賬號：s20240181",
+                "details": ""
+            },
+            {
+                "title": "劉燁喬",
+                "summary": "班級：F1E(24-25) | 學號：21號 | Class賬號：s20240162",
+                "details": ""
+            },
+            {
+                "title": "歐陽慶鴻",
+                "summary": "班級：F1E(24-25) | 學號：22號 | Class賬號：s20240187",
+                "details": ""
+            },
+            {
+                "title": "蔡梓彥",
+                "summary": "班級：F1E(24-25) | 學號：23號 | Class賬號：s20240130",
+                "details": ""
+            },
+            {
+                "title": "謝梓君",
+                "summary": "班級：F1E(24-25) | 學號：24號 | Class賬號：s20240134",
+                "details": ""
+            },
+            {
+                "title": "龎瑋霖",
+                "summary": "班級：F1E(24-25) | 學號：25號 | Class賬號：s20240136",
+                "details": ""
+            },
+            {
+                "title": "李熙",
+                "summary": "班級：F1E(24-25) | 學號：26號 | Class賬號：s20241008",
+                "details": ""
+            },
+            {
+                "title": "洪晨瑞",
+                "summary": "班級：F1E(24-25) | 學號：27號 | Class賬號：s20241029",
+                "details": ""
+            },
+            {
+                "title": "張立仁",
+                "summary": "班級：F1E(24-25) | 學號：28號 | Class賬號：s20241075",
+                "details": ""
+            },
+            {
+                "title": "陳天祺",
+                "summary": "班級：F1E(24-25) | 學號：29號 | Class賬號：s20241015",
+                "details": ""
+            },
+            {
+                "title": "陳欣妍",
+                "summary": "班級：F1E(24-25) | 學號：30號 | Class賬號：s20241046",
+                "details": ""
+            },
+            {
+                "title": "陳敬鋒",
+                "summary": "班級：F1E(24-25) | 學號：31號 | Class賬號：s20241055",
+                "details": ""
+            },
+            {
+                "title": "陳鈺儀",
+                "summary": "班級：F1E(24-25) | 學號：32號 | Class賬號：s20241024",
+                "details": ""
+            },
+            {
+                "title": "羅澤彬",
+                "summary": "班級：F1E(24-25) | 學號：33號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "戴浚熹",
+                "summary": "班級：F1E(24-25) | 學號：34號 | Class賬號：未知",
+                "details": ""
+            },
+
+            //F1F
+
+            {
+                "title": "吳巧兒",
+                "summary": "班級：F1F(24-25) | 學號：1號 | Class賬號：s20240110",
+                "details": ""
+            },
+            {
+                "title": "吳昊霖",
+                "summary": "班級：F1F(24-25) | 學號：2號 | Class賬號：s20240005",
+                "details": ""
+            },
+            {
+                "title": "吳嘉曦",
+                "summary": "班級：F1F(24-25) | 學號：3號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "李子琳",
+                "summary": "班級：F1F(24-25) | 學號：4號 | Class賬號：s20240180",
+                "details": ""
+            },
+            {
+                "title": "李學霖",
+                "summary": "班級：F1F(24-25) | 學號：5號 | Class賬號：s20240031",
+                "details": ""
+            },
+            {
+                "title": "林芷昕",
+                "summary": "班級：F1F(24-25) | 學號：6號 | Class賬號：s20240183",
+                "details": ""
+            },
+            {
+                "title": "洪智雯",
+                "summary": "班級：F1F(24-25) | 學號：7號 | Class賬號：s20240146",
+                "details": ""
+            },
+            {
+                "title": "胡政延",
+                "summary": "班級：F1F(24-25) | 學號：8號 | Class賬號：s20240092",
+                "details": ""
+            },
+            {
+                "title": "梁梓榆",
+                "summary": "班級：F1F(24-25) | 學號：9號 | Class賬號：s20240118",
+                "details": ""
+            },
+            {
+                "title": "陳垚鎧",
+                "summary": "班級：F1F(24-25) | 學號：10號 | Class賬號：s20240097",
+                "details": ""
+            },
+            {
+                "title": "陳嘉晴",
+                "summary": "班級：F1F(24-25) | 學號：11號 | Class賬號：s20240063",
+                "details": ""
+            },
+            {
+                "title": "黃思瑜",
+                "summary": "班級：F1F(24-25) | 學號：12號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "黃景裕",
+                "summary": "班級：F1F(24-25) | 學號：13號 | Class賬號：s20240176",
+                "details": ""
+            },
+            {
+                "title": "黃竣謙",
+                "summary": "班級：F1F(24-25) | 學號：14號 | Class賬號：s20240047",
+                "details": ""
+            },
+            {
+                "title": "葉向晴",
+                "summary": "班級：F1F(24-25) | 學號：15號 | Class賬號：s20240048",
+                "details": ""
+            },
+            {
+                "title": "趙倩華",
+                "summary": "班級：F1F(24-25) | 學號：16號 | Class賬號：s20240073",
+                "details": ""
+            },
+            {
+                "title": "劉子銘",
+                "summary": "班級：F1F(24-25) | 學號：17號 | Class賬號：s20240160",
+                "details": ""
+            },
+            {
+                "title": "劉珀榮",
+                "summary": "班級：F1F(24-25) | 學號：18號 | Class賬號：s20240161",
+                "details": ""
+            },
+            {
+                "title": "盧旻君",
+                "summary": "班級：F1F(24-25) | 學號：19號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "霍泳兒",
+                "summary": "班級：F1F(24-25) | 學號：20號 | Class賬號：s20240104",
+                "details": ""
+            },
+            {
+                "title": "謝芷晴",
+                "summary": "班級：F1F(24-25) | 學號：21號 | Class賬號：s20240105",
+                "details": ""
+            },
+            {
+                "title": "謝健穎",
+                "summary": "班級：F1F(24-25) | 學號：22號 | Class賬號：未知",
+                "details": ""
+            },
+            {
+                "title": "藍奕淇",
+                "summary": "班級：F1F(24-25) | 學號：23號 | Class賬號：s20240135",
+                "details": ""
+            },
+            {
+                "title": "魏銘成",
+                "summary": "班級：F1F(24-25) | 學號：24號 | Class賬號：s20240023",
+                "details": ""
+            },
+            {
+                "title": "石家銘",
+                "summary": "班級：F1F(24-25) | 學號：25號 | Class賬號：s20241042",
+                "details": ""
+            },
+            {
+                "title": "朱逸恒",
+                "summary": "班級：F1F(24-25) | 學號：26號 | Class賬號：s20241062",
+                "details": ""
+            },
+            {
+                "title": "張婉婷",
+                "summary": "班級：F1F(24-25) | 學號：27號 | Class賬號：s20241080",
+                "details": ""
+            },
+            {
+                "title": "梁鈺妮",
+                "summary": "班級：F1F(24-25) | 學號：28號 | Class賬號：s20241003",
+                "details": ""
+            },
+            {
+                "title": "許銘皓",
+                "summary": "班級：F1F(24-25) | 學號：29號 | Class賬號：s20241058",
+                "details": ""
+            },
+            {
+                "title": "黃泓嘉",
+                "summary": "班級：F1F(24-25) | 學號：30號 | Class賬號：s20241079",
+                "details": ""
+            },
+            {
+                "title": "溫林聖",
+                "summary": "班級：F1F(24-25) | 學號：31號 | Class賬號：s20241018",
+                "details": ""
+            },
+            {
+                "title": "雷日朗",
+                "summary": "班級：F1F(24-25) | 學號：32號 | Class賬號：s20241074",
+                "details": ""
+            },
+            {
+                "title": "廖宇曦",
+                "summary": "班級：F1F(24-25) | 學號：33號 | Class賬號：s20241077",
+                "details": ""
+            },
+            {
+                "title": "盧霆謙",
+                "summary": "班級：F1F(24-25) | 學號：34號 | Class賬號：s20241019",
+                "details": ""
+            },
+            {
+                "title": "譚茜恩",
+                "summary": "班級：F1F(24-25) | 學號：35號 | Class賬號：s20241004",
+                "details": ""
+            },
+
+            //F1G
+
+            {
+                "title": "孔維雪",
+                "summary": "班級：F1G(24-25) | 學號：1號 | Class賬號：s20240106",
+                "details": ""
+            },
+            {
+                "title": "庄恩侗",
+                "summary": "班級：F1G(24-25) | 學號：2號 | Class賬號：s20240167",
+                "details": ""
+            },
+            {
+                "title": "何紫瑤",
+                "summary": "班級：F1G(24-25) | 學號：3號 | Class賬號：s20240179",
+                "details": ""
+            },
+            {
+                "title": "何紫瑩",
+                "summary": "班級：F1G(24-25) | 學號：4號 | Class賬號：s20240138",
+                "details": ""
+            },
+            {
+                "title": "吳文軒",
+                "summary": "班級：F1G(24-25) | 學號：5號 | Class賬號：s20240054",
+                "details": ""
+            },
+            {
+                "title": "吳信誠",
+                "summary": "班級：F1G(24-25) | 學號：6號 | Class賬號：s20240111",
+                "details": ""
+            },
+            {
+                "title": "吳梓皓",
+                "summary": "班級：F1G(24-25) | 學號：7號 | Class賬號：s20240007",
+                "details": ""
+            },
+            {
+                "title": "呂子晴",
+                "summary": "班級：F1G(24-25) | 學號：8號 | Class賬號：s20240141",
+                "details": ""
+            },
+            {
+                "title": "李梓渝",
+                "summary": "班級：F1G(24-25) | 學號：9號 | Class賬號：s20240009",
+                "details": ""
+            },
+            {
+                "title": "李曉東",
+                "summary": "班級：F1G(24-25) | 學號：10號 | Class賬號：s20240087",
+                "details": ""
+            },
+            {
+                "title": "林津",
+                "summary": "班級：F1G(24-25) | 學號：11號 | Class賬號：s20240114",
+                "details": ""
+            },
+            {
+                "title": "林曉悠",
+                "summary": "班級：F1G(24-25) | 學號：12號 | Class賬號：s20240011",
+                "details": ""
+            },
+            {
+                "title": "梁心柔",
+                "summary": "班級：F1G(24-25) | 學號：13號 | Class賬號：s20240039",
+                "details": ""
+            },
+            {
+                "title": "梁倚淇",
+                "summary": "班級：F1G(24-25) | 學號：14號 | Class賬號：s20240094",
+                "details": ""
+            },
+            {
+                "title": "梁揮音",
+                "summary": "班級：F1G(24-25) | 學號：15號 | Class賬號：s20240061",
+                "details": ""
+            },
+            {
+                "title": "陳正皓",
+                "summary": "班級：F1G(24-25) | 學號：16號 | Class賬號：s20240170",
+                "details": ""
+            },
+            {
+                "title": "陳雪盈",
+                "summary": "班級：F1G(24-25) | 學號：17號 | Class賬號：s20240154",
+                "details": ""
+            },
+            {
+                "title": "陳雋",
+                "summary": "班級：F1G(24-25) | 學號：18號 | Class賬號：s20240042",
+                "details": ""
+            },
+            {
+                "title": "曾子昕",
+                "summary": "班級：F1G(24-25) | 學號：19號 | Class賬號：s20240185",
+                "details": ""
+            },
+            {
+                "title": "黃晞",
+                "summary": "班級：F1G(24-25) | 學號：20號 | Class賬號：s20240068",
+                "details": ""
+            },
+            {
+                "title": "黃翊汛",
+                "summary": "班級：F1G(24-25) | 學號：21號 | Class賬號：s20240015",
+                "details": ""
+            },
+            {
+                "title": "劉振邦",
+                "summary": "班級：F1G(24-25) | 學號：22號 | Class賬號：s20240049",
+                "details": ""
+            },
+            {
+                "title": "潘賢達",
+                "summary": "班級：F1G(24-25) | 學號：23號 | Class賬號：s20240051",
+                "details": ""
+            },
+            {
+                "title": "鄭逸晉",
+                "summary": "班級：F1G(24-25) | 學號：24號 | Class賬號：s20240166",
+                "details": ""
+            },
+            {
+                "title": "黎昊志",
+                "summary": "班級：F1G(24-25) | 學號：25號 | Class賬號：s20240132",
+                "details": ""
+            },
+            {
+                "title": "鍾承毅",
+                "summary": "班級：F1G(24-25) | 學號：26號 | Class賬號：s20240021",
+                "details": ""
+            },
+            {
+                "title": "李宇軒",
+                "summary": "班級：F1G(24-25) | 學號：27號 | Class賬號：s20241007",
+                "details": ""
+            },
+            {
+                "title": "李諾曦",
+                "summary": "班級：F1G(24-25) | 學號：28號 | Class賬號：s20241028",
+                "details": ""
+            },
+            {
+                "title": "杜宇樂",
+                "summary": "班級：F1G(24-25) | 學號：29號 | Class賬號：s20241072",
+                "details": ""
+            },
+            {
+                "title": "周志剛",
+                "summary": "班級：F1G(24-25) | 學號：30號 | Class賬號：s20241017",
+                "details": ""
+            },
+            {
+                "title": "黃柏言",
+                "summary": "班級：F1G(24-25) | 學號：31號 | Class賬號：s20241071",
+                "details": ""
+            },
+            {
+                "title": "黃悅",
+                "summary": "班級：F1G(24-25) | 學號：32號 | Class賬號：s20241063",
+                "details": ""
+            },
+            {
+                "title": "歐陽芷彥",
+                "summary": "班級：F1G(24-25) | 學號：33號 | Class賬號：s20241057",
+                "details": ""
+            },
+            {
+                "title": "鄭文熹",
+                "summary": "班級：F1G(24-25) | 學號：34號 | Class賬號：s20241023",
+                "details": ""
+            },
+            {
+                "title": "陳芷妍",
+                "summary": "班級：F1G(24-25) | 學號：35號 | Class賬號：未知",
+                "details": ""
+            },
+
+            //班級小團體
+
+            {
+                title: "初一B同學",
+                summary: "班級：F2G 人數：舊是4人，中期是5人，現是5人",
+                details: "詳細資訊：\n班級：F2G\n性質：組隊\n\n人員：\n舊：\n-鄧伊楠、郭芷瑜、林嘉瑤、陳灝熙\n中期：\n-鄧伊楠、郭芷瑜、林嘉瑤、陳灝熙、郭泳妍\n現在\n-鄧伊楠、郭芷瑜、林嘉瑤、陳灝熙、劉婧妍\n\n"
+            },
+
+            //其他
+
+            {
+                title: "sedt",
+                summary: "是一個把AI寫的軟件和網頁二創的賬號",
+                details: "工作：\n-二創AI寫的軟件和網頁\n-搜索器制作\n\n連絡方式：\n-kpsedt@gmail.com"
+            },
+            //事件解讀
+            {
+                title: "5月12日bg和ba去軍訓的車上坐一起",
+                summary: "原因：單純出於友情",
+                details: "詳細資訊：\n為何是出於友情，而不是其他關係？\n原因(1)\nbg和ba沒有明顥的合作關係，不構成bbpe\n(2)\nbg本身有死黨18，完全可以一起坐，但ah和了bd一起坐，所以bg找了有一定友情又沒有人陪的ba一起坐"
+            },
+            //文化
+            {
+                title: "願榮光歸香港",
+                summary: "《願榮光歸香港》（英語：Glory to Hong Kong），又名《我願榮光歸香港》，簡稱《願榮光》或《榮光》",
+                details: "詳細資訊：\n《願榮光歸香港》（英語：Glory to Hong Kong），又名《我願榮光歸香港》，簡稱《願榮光》或《榮光》，是一首由2019年香港反對逃犯條例修訂草案運動參與者創作並廣為傳唱的抗爭歌曲。由一群連登網民自發創作並在網絡上流傳，歌詞的內容大意是：香港這片土地發生讓香港人流淚及憤怒的事情後，人們為了公義而拒絕沉默並選擇不再退縮地共同走上街頭，香港人的勇氣和智慧可以渡過整個黑暗時刻，走向「光復香港，時代革命，民主自由永不朽」的未來。歌曲於2019年8月31日上載至網絡以來，被不少香港人及海外支持者認可，並被稱作「香港國歌」，並於多場有關反修例運動的示威中被奏唱，成為此運動的本土集體抗爭象徵之一，亦有媒體及知名人士讚揚詞曲表達了示威者心聲。與此同時，歌曲也引發了爭議，如被港區全國人大代表陳曼琪認為其散播「香港獨立」思想。2020年7月8日，香港特區時任教育局局長楊潤雄表示，此歌「帶有強烈政治訊息」，因此「絕對不應」在香港校內奏唱與播放。2022年，這首歌是搜尋引擎Google搜尋「香港國歌」或「Hong Kong national anthem」最前列的結果。2024年5月，高等法院上訴庭批出禁制令，禁止公眾人士在網上或任何平台傳播該曲，包括其旋律和歌詞，以及包括手語在內不同語言的版本。"
+            },
+            {
+                title: "反共抗俄歌",
+                summary: "反共抗俄歌，後改稱反共復國歌，是中國國民黨為宣傳反攻大陸而創作的一首歌曲",
+                details: "詳細資訊：\n反共抗俄歌，後改稱反共復國歌，是中國國民黨為宣傳反攻大陸而創作的一首歌曲，由蕭而化作曲，中華民國總統蔣中正親自作詞。該歌曲創作於1950年代初，從1952年到1975年一直是台灣音樂課程的必學內容。\n\n歌詞：\n-打倒俄寇，反共產，反共產；消滅朱毛，殺漢奸，殺漢奸；\n-收復大陸解救同胞，服從領袖完成革命；\n-三民主義實行，中華民國復興；\n-中華復興，民國萬歲，中華民國萬萬歲。"
+            },
+            //歷史
+            {
+                title: "天安門事件",
+                summary: "六四事件，又稱八九民運、八九六四，狹義上指六四清場",
+                details: "詳細資訊：\n六四事件，又稱八九民運、八九學運、天安門事件或六四天安門事件，中國官方稱1989年春夏之交的政治風波，廣義上指1989年4月中旬開始的以悼念胡耀邦活動為導火線、由中國大陸高校學生在北京市天安門廣場發起、持續近兩個月的全境示威運動；狹義上指六四清場，即1989年6月3日晚間至6月4日凌晨，中央軍事委員會調集中國人民解放軍戒嚴部隊、武裝警察部隊和人民警察在北京天安門廣場對示威集會進行的武力清場行動。"
+            },
+            //節日
+            {
+                title: "雙十節",
+                summary: "雙十節，又稱雙十國慶、雙十慶典、中華民國國慶日，時間為10月10日",
+                details: "詳細資訊：\n中華民國的國慶日，定為1911年武昌起義的發動日——10月10日，亦稱雙十節、雙十國慶、雙十慶典、中華民國國慶日。武昌起義是辛亥革命的開端，起事後兩個月內中國各地革命行動陸續成功，最終成功推翻清朝，並於1912年1月1日建立中華民國，成為東亞第一個獲普遍承認的共和國。該日亦為中華民國的國定紀念日之一。自從1949年中華民國政府遷臺以來，每年國慶日皆舉行慶典，主要為臺北總統府前廣場舉行由政府相關單位共同籌辦的「中華民國中樞暨各界慶祝國慶大會」，包括升旗典禮及藝文慶祝活動，並有各式遊行及表演隊伍，在蔣中正政府時期更是每年舉行國慶閱兵；晚間則有國慶煙火施放表演。"
+            },
+            {
+                title: "中國國慶節",
+                summary: "中國國慶節，在中國境內簡稱作國慶節、國慶，是為紀念中華人民共和國成立而設立的節日",
+                details: "詳細資訊：\n中華人民共和國國慶節，在中國境內簡稱作國慶節、國慶，是為紀念中華人民共和國成立而設立的節日，慶祝日期被定為每年的10月1日[註 1][1]。1949年10月1日，中華人民共和國開國大典在北京天安門廣場舉行，中華人民共和國中央人民政府正式成立。該節日在中國內地及香港、澳門是法定假日或公眾假期，法定的國慶假日在中國大陸為10月1日至10月3日共3天，但根據當年國慶節是星期幾進行調休。一般會通過將其他周的周末休息調整到3天法定假的前後，來和該周的周末相連，從而形成7天的小長假。如遇中秋節等其他法定節假日則用連休8天假；在香港，法定假日在1997年和1998年時曾為2天，後改為1天；在澳門為2天。"
+            },    
+        ];
+
+        // 同义词库
+        const synonyms = {
+            "62707": ["林煒軒"],
+            "林煒軒": ["62707"],
+            "62608": ["林芊葵"],
+            "林芊葵": ["62608"],
+            "62731": ["歐陽毅康"],
+            "歐陽毅康": ["62731"],
+            "62720": ["陳婷昕"],
+            "陳婷昕": ["62720"],
+            "62726": ["蔣汝晴"],
+            "蔣汝晴": ["62726"],
+            "62709": ["施嘉琪"],
+            "施嘉琪": ["62709"],
+            "62728": ["黎璟臻"],
+            "黎璟臻": ["62728"],
+            "62717": ["郭泳妍"],
+            "郭泳妍": ["62717"],
+            "62721": ["陳灝熙"],
+            "陳灝熙": ["62721"],
+            "62320": ["陳昭妍"],
+            "陳昭妍": ["62320"],
+            "62727": ["鄧伊楠"],
+            "鄧伊楠": ["62727"],
+            "62716": ["許樂山"],
+            "許樂山": ["62716"],
+            "暗恋": ["喜歡"],
+            "朋友": ["死黨"],
+        };
+        
+        // 簡體轉繁體映射表
+        const simplifiedToTraditional = {
+            'a': 'a', // 示例，實際應包含完整映射
+            // 其他簡繁映射...
+        };
+        
+        // 簡體轉繁體函數
+        function convertToTraditional(text) {
+            return text.split('').map(char => {
+                return simplifiedToTraditional[char] || char;
+            }).join('');
+        }
+        
+        // 獲取同義詞
+        function getSynonyms(keyword) {
+            const traditionalKeyword = convertToTraditional(keyword);
+            let synonymList = [];
+            
+            // 添加原始關鍵詞
+            synonymList.push(keyword);
+            
+            // 添加繁體版本
+            if (traditionalKeyword !== keyword) {
+                synonymList.push(traditionalKeyword);
+            }
+            
+            // 添加同義詞庫中的同義詞
+            if (synonyms[keyword]) {
+                synonymList = synonymList.concat(synonyms[keyword]);
+            }
+            
+            if (synonyms[traditionalKeyword]) {
+                synonymList = synonymList.concat(synonyms[traditionalKeyword]);
+            }
+            
+            // 去重
+            return [...new Set(synonymList)];
+        }
+        
+        // 高亮文本
+        function highlightText(text, keywords) {
+            if (!keywords || keywords.length === 0 || !text) return text;
+            
+            // 為所有關鍵字創建高亮
+            keywords.forEach(keyword => {
+                if (keyword) {
+                    const regex = new RegExp(`(${keyword})`, 'gi');
+                    text = text.replace(regex, '<span class="bg-accent font-bold px-1 rounded">$1</span>');
+                }
+            });
+            
+            return text;
+        }
+        
+        // 執行搜索
+        function performSearch() {
+            const input = document.getElementById('searchInput');
+            let keyword = input.value.trim();
+            const resultsContainer = document.getElementById('searchResults');
+            const resultStats = document.getElementById('resultStats');
+            const synonymInfo = document.getElementById('synonymInfo');
+            
+            resultsContainer.innerHTML = '';
+            synonymInfo.innerHTML = '';
+            
+            if (!keyword) {
+                resultStats.innerHTML = '<i class="fa fa-info-circle mr-1"></i> 輸入關鍵詞開始搜索';
+                return;
+            }
+            
+            // 檢測加載指令
+            if (keyword === "開啟外掛庫") {
+                input.value = "";
+                showMessage("請選擇要加載的JSON文件");
+                document.getElementById('fileInput').click();
+                return;
+            }
+            
+            // 分割多关键词
+            const keywords = keyword.split(/\s+/).filter(k => k.length > 0);
+            
+            // 生成所有关键词及其同义词的列表
+            const allKeywords = [];
+            const allSynonymKeywords = [];
+            
+            keywords.forEach(kw => {
+                const synList = getSynonyms(kw);
+                allKeywords.push(...synList);
+                allSynonymKeywords.push(...synList.slice(1)); // 只包含同义词，不包含原始关键词
+            });
+            
+            // 显示同义词信息
+            if (allSynonymKeywords.length > 0) {
+                synonymInfo.innerHTML = `<i class="fa fa-exchange mr-1"></i> 同義詞: ${allSynonymKeywords.join(', ')}`;
+            }
+            
+            // 搜索过滤（匹配任何一个关键词）
+            const results = dataset.filter(item => {
+                const title = item.title.toLowerCase();
+                const summary = item.summary.toLowerCase();
+                const details = item.details.toLowerCase();
+                
+                // 检查所有关键词
+                return allKeywords.some(k => {
+                    const kLower = k.toLowerCase();
+                    return title.includes(kLower) || 
+                           summary.includes(kLower) ||
+                           details.includes(kLower);
+                });
+            }).sort((a, b) => (b.summary.includes('班級：') - a.summary.includes('班級：')));
+            
+            // 计算匹配度并排序
+            const resultsWithScore = results.map(item => {
+                const title = item.title.toLowerCase();
+                const summary = item.summary.toLowerCase();
+                const details = item.details.toLowerCase();
+                
+                let score = 0;
+                
+                // 计算关键词匹配得分
+                allKeywords.forEach(k => {
+                    const kLower = k.toLowerCase();
+                    if (title.includes(kLower)) score += 3; // 标题匹配权重高
+                    if (summary.includes(kLower)) score += 2; // 摘要匹配权重中
+                    if (details.includes(kLower)) score += 1; // 详情匹配权重低
+                });
+                
+                return {...item, score};
+            }).sort((a, b) => b.score - a.score); // 按得分降序排序
+            
+            // 显示结果统计
+            resultStats.innerHTML = results.length > 0 ? 
+                `<i class="fa fa-search mr-1"></i> 找到 ${results.length} 條相關結果` : 
+                `<i class="fa fa-exclamation-circle mr-1 text-danger"></i> 未找到相關結果`;
+            
+            // 显示结果
+            if (results.length > 0) {
+                resultsWithScore.forEach(item => {
+                    const resultElement = document.createElement('div');
+                    resultElement.className = 'bg-white rounded-xl shadow-md p-5 card-hover';
+                    resultElement.innerHTML = `
+                        <h3 class="text-lg font-bold text-dark mb-2">${highlightText(item.title, allKeywords)}</h3>
+                        <div class="text-neutral line-clamp-2">${highlightText(item.summary, allKeywords)}</div>
+                    `;
+                    resultElement.addEventListener('click', () => showDetail(item, allKeywords));
+                    resultsContainer.appendChild(resultElement);
+                });
+            }
+        }
+        
+        // 顯示詳情
+        function showDetail(item, keywords) {
+            const modal = document.getElementById('detailModal');
+            document.getElementById('modalTitle').textContent = item.title;
+            const contentElement = document.getElementById('modalContent');
+            
+            // 高亮關鍵字並保留換行
+            const highlightedContent = highlightText(item.details, keywords)
+                .replace(/\n/g, '<br class="my-2">');
+            
+            contentElement.innerHTML = highlightedContent;
+            modal.classList.remove('hidden');
+        }
+        
+        // 關閉模態框
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+        
+        // 顯示投稿模態框
+        function showSubmitModal() {
+            document.getElementById('submitModal').classList.remove('hidden');
+        }
+        
+        // 關閉投稿模態框
+        function closeSubmitModal() {
+            document.getElementById('submitModal').classList.add('hidden');
+        }
+        
+        // 消息提示
+        function showMessage(text, isError = false) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `fixed top-10 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-lg z-50 message-appear ${isError ? 'bg-danger text-white' : 'bg-success text-white'}`;
+            msg.style.display = 'block';
+            
+            setTimeout(() => {
+                msg.classList.remove('message-appear');
+                msg.classList.add('message-fade');
+                setTimeout(() => {
+                    msg.style.display = 'none';
+                    msg.classList.remove('message-fade');
+                }, 300);
+            }, 3000);
+        }
+        
+        // 文件加載處理
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files); 
+            if (files.length === 0) return;
+            
+            files.forEach(file => { 
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const externalData = JSON.parse(e.target.result);
+                        
+                        if (!Array.isArray(externalData)) {
+                            throw new Error('文件必須包含JSON數組');
+                        }
+                        
+                        const isValid = externalData.every(item => 
+                            'title' in item && 
+                            'summary' in item && 
+                            'details' in item
+                        );
+                        
+                        if (!isValid) {
+                            throw new Error('數據缺少必要字段：title/summary/details');
+                        }
+                        
+                        dataset.push(...externalData);
+                        showMessage(`成功加載文件: ${file.name}`);
+                    } catch (error) {
+                        showMessage(`加載失敗: ${error.message}`, true);
+                    }
+                };
+                reader.readAsText(file);
+            });
+        });
+        
+        // 回車鍵搜索
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+        
+        // 點擊背景關閉模態框
+        window.addEventListener('click', function(event) {
+            const modals = document.querySelectorAll('.modal-appear');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+        });
+        
+        // 初始化頁面
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('resultStats').innerHTML = '<i class="fa fa-search mr-1"></i> 準備就緒，請輸入搜索詞';
+            
+            // 設置按鈕事件
+            document.getElementById('searchButton').addEventListener('click', performSearch);
+            document.getElementById('submitBtn').addEventListener('click', showSubmitModal);
+            document.getElementById('mobileSubmitBtn').addEventListener('click', showSubmitModal);
+        });
+    </script>
+</body>
+</html>
+    
